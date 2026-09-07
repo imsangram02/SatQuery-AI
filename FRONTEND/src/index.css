@@ -1,0 +1,314 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+  
+  *, ::before, ::after {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  html, body, button, input, optgroup, select, textarea, h1, h2, h3, h4, h5, h6, p, span, a, label {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar for satellite telemetry & panes */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 9999px;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(51, 65, 85, 0.7);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(20, 184, 166, 0.6);
+  }
+}
+
+@layer components {
+  /* Tactile button base with smooth hover elevation, focus-ring, and tactile click depression */
+  .btn-tactile {
+    @apply inline-flex items-center justify-center font-medium transition-all duration-200 ease-out select-none
+           hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-offset-2
+           dark:focus-visible:ring-offset-slate-950 disabled:opacity-50 disabled:pointer-events-none disabled:transform-none;
+  }
+
+  .btn-primary {
+    @apply btn-tactile bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold
+           shadow-md shadow-teal-500/20 hover:shadow-lg hover:shadow-teal-500/30;
+  }
+
+  .btn-gradient {
+    @apply btn-tactile bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-400
+           hover:from-teal-300 hover:via-teal-400 hover:to-emerald-300 text-slate-950 font-bold
+           shadow-lg shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-400/40;
+  }
+
+  .btn-secondary {
+    @apply btn-tactile bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800
+           text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-800
+           hover:border-teal-500/40 dark:hover:border-teal-500/40 shadow-sm hover:shadow-md;
+  }
+
+  .btn-outline-teal {
+    @apply btn-tactile border border-teal-500/50 text-teal-600 dark:text-teal-300
+           hover:bg-teal-500/15 hover:border-teal-400 shadow-sm hover:shadow-teal-500/10;
+  }
+
+  .btn-ghost {
+    @apply btn-tactile text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white
+           hover:bg-slate-100/80 dark:hover:bg-slate-800/80;
+  }
+
+  /* Geospatial Grid / Radar Overlay */
+  .geo-grid-pattern {
+    background-size: 24px 24px;
+    background-image: 
+      linear-gradient(to right, rgba(20, 184, 166, 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(20, 184, 166, 0.05) 1px, transparent 1px);
+  }
+
+  .dark .geo-grid-pattern {
+    background-image: 
+      linear-gradient(to right, rgba(20, 184, 166, 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(20, 184, 166, 0.08) 1px, transparent 1px);
+  }
+
+  /* Bright radiant card glow */
+  .luminous-glow {
+    box-shadow: 0 0 50px -10px rgba(45, 212, 191, 0.25), 0 0 20px -5px rgba(6, 182, 212, 0.2);
+  }
+
+  /* AI Mascot Orbital and Floating Animations */
+  @keyframes mascot-float {
+    0%, 100% {
+      transform: translateY(0px) rotate(0deg) scale(1);
+    }
+    33% {
+      transform: translateY(-5px) rotate(1.2deg) scale(1.015);
+    }
+    66% {
+      transform: translateY(-2px) rotate(-1.2deg) scale(0.995);
+    }
+  }
+
+  @keyframes mascot-orbit {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes mascot-glow-pulse {
+    0%, 100% {
+      opacity: 0.55;
+      transform: scale(1.05);
+      filter: blur(14px);
+    }
+    50% {
+      opacity: 0.95;
+      transform: scale(1.22);
+      filter: blur(20px);
+    }
+  }
+
+  .animate-mascot-float {
+    animation: mascot-float 4s ease-in-out infinite;
+  }
+
+  .animate-mascot-orbit {
+    animation: mascot-orbit 12s linear infinite;
+  }
+
+  .animate-mascot-glow {
+    animation: mascot-glow-pulse 4.5s ease-in-out infinite;
+  }
+
+  .animate-radar-sweep {
+    animation: radar-sweep 2.2s ease-in-out infinite;
+  }
+
+  /* Space & Satellite Orbit Animations */
+  @keyframes star-twinkle {
+    0%, 100% {
+      opacity: 0.25;
+      transform: scale(0.85);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.25);
+    }
+  }
+
+  @keyframes orbit-pulse {
+    0%, 100% {
+      opacity: 0.35;
+      stroke-width: 1px;
+    }
+    50% {
+      opacity: 0.85;
+      stroke-width: 1.75px;
+    }
+  }
+
+  @keyframes telemetry-flow {
+    from {
+      stroke-dashoffset: 400;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes particle-drift {
+    0% {
+      transform: translateY(0px) translateX(0px);
+      opacity: 0.2;
+    }
+    50% {
+      opacity: 0.75;
+      transform: translateY(-25px) translateX(12px);
+    }
+    100% {
+      transform: translateY(-50px) translateX(0px);
+      opacity: 0.1;
+    }
+  }
+
+  @keyframes earth-aurora {
+    0%, 100% {
+      filter: drop-shadow(0 -10px 45px rgba(20, 184, 166, 0.4));
+    }
+    50% {
+      filter: drop-shadow(0 -15px 70px rgba(56, 189, 248, 0.6));
+    }
+  }
+
+  @keyframes satellite-glide {
+    0% {
+      transform: translate(-12px, 8px) rotate(0deg);
+    }
+    50% {
+      transform: translate(10px, -8px) rotate(1.5deg);
+    }
+    100% {
+      transform: translate(-12px, 8px) rotate(0deg);
+    }
+  }
+
+  .animate-star-twinkle {
+    animation: star-twinkle 4s ease-in-out infinite;
+  }
+
+  .animate-orbit-pulse {
+    animation: orbit-pulse 6s ease-in-out infinite;
+  }
+
+  .animate-telemetry-flow {
+    animation: telemetry-flow 25s linear infinite;
+  }
+
+  .animate-particle-drift {
+    animation: particle-drift 8s ease-in-out infinite;
+  }
+
+  .animate-earth-aurora {
+    animation: earth-aurora 7s ease-in-out infinite;
+  }
+
+  .animate-satellite-glide {
+    animation: satellite-glide 9s ease-in-out infinite;
+  }
+
+  /* Scan Swath & Data Path Animations */
+  @keyframes scan-swath {
+    0%, 100% {
+      opacity: 0.15;
+      transform: scaleX(0.95);
+    }
+    50% {
+      opacity: 0.35;
+      transform: scaleX(1.05);
+    }
+  }
+
+  @keyframes data-path-flow {
+    from {
+      stroke-dashoffset: 800;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes neon-glow-pulse {
+    0%, 100% {
+      opacity: 0.4;
+      filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.4));
+    }
+    50% {
+      opacity: 0.9;
+      filter: drop-shadow(0 0 20px rgba(45, 212, 191, 0.7));
+    }
+  }
+
+  .animate-scan-swath {
+    animation: scan-swath 4.5s ease-in-out infinite;
+    transform-origin: 520px 355px;
+  }
+
+  .animate-data-flow {
+    animation: data-path-flow 20s linear infinite;
+  }
+
+  .animate-neon-pulse {
+    animation: neon-glow-pulse 5s ease-in-out infinite;
+  }
+
+  /* Subtle Backlight Radiance Breathing Animation for Login Card */
+  @keyframes card-backlight-pulse {
+    0%, 100% {
+      opacity: 0.85;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.012);
+    }
+  }
+
+  .animate-backlight-pulse {
+    animation: card-backlight-pulse 7s ease-in-out infinite;
+  }
+
+  /* Premium Futuristic Dark Glassmorphism Panel */
+  .glass-panel-dark {
+    background: rgba(3, 7, 18, 0.82);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.9),
+                0 0 40px -10px rgba(14, 165, 233, 0.22),
+                inset 0 1px 1px 0 rgba(255, 255, 255, 0.1);
+  }
+}
