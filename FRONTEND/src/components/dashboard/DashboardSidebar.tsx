@@ -14,7 +14,8 @@ import {
   Radio, 
   ChevronRight,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  LogOut
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { DashboardView, UserProfile } from '../../types';
@@ -25,6 +26,7 @@ interface DashboardSidebarProps {
   onBackToLanding: () => void;
   user: UserProfile | null;
   systemStatus?: string;
+  onSignOut?: () => void;
 }
 
 export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
@@ -32,7 +34,8 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   onSelectView,
   onBackToLanding,
   user,
-  systemStatus = 'AI System Ready'
+  systemStatus = 'AI System Ready',
+  onSignOut
 }) => {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
@@ -197,7 +200,19 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 </div>
               </div>
             </div>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="Online" />
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" title="Online" />
+              {onSignOut && (
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="p-1 text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
+                  title="Sign Out / Switch Account"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         )}
 

@@ -12,18 +12,20 @@ import { UseCasesSection } from './UseCasesSection';
 import { TechnologySection } from './TechnologySection';
 import { LandingCTA } from './LandingCTA';
 import { Footer } from '../layout/Footer';
-import { CosmicOrbitBackground } from './CosmicOrbitBackground';
+import { RevealOnScroll } from '../common/RevealOnScroll';
 
 interface LandingPageProps {
   onLaunchApp: () => void;
   onLaunchWithScenario?: (query?: string, mode?: 'single' | 'bi-temporal' | 'optical-sar') => void;
   onOpenAuth?: (tab?: 'signin' | 'signup') => void;
+  onNavigateToAuth?: (page: 'login' | 'signup') => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onLaunchApp,
   onLaunchWithScenario,
-  onOpenAuth
+  onOpenAuth,
+  onNavigateToAuth
 }) => {
   const handleScrollToCapabilities = () => {
     const el = document.querySelector('#capabilities');
@@ -31,14 +33,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-cyan-500 selection:text-slate-950 transition-colors duration-200">
-      {/* Background Cosmic Atmosphere */}
-      <CosmicOrbitBackground />
-
+    <div className="relative min-h-screen flex flex-col bg-slate-50 dark:bg-[#030712] text-slate-900 dark:text-slate-100 selection:bg-cyan-500 selection:text-slate-950 transition-colors duration-200">
       {/* 1. Landing Navbar (Section 1) */}
-      <LandingNavbar onLaunchApp={onLaunchApp} onOpenAuth={onOpenAuth} />
+      <LandingNavbar
+        onLaunchApp={onLaunchApp}
+        onOpenAuth={onOpenAuth}
+        onNavigateToAuth={onNavigateToAuth}
+      />
 
-      {/* Main Sections */}
+      {/* Main Sections with Reveal on Scroll (With More Time) */}
       <main className="relative z-10 flex-1 flex flex-col">
         {/* 2. Hero Section (Section 2) */}
         <LandingHero
@@ -47,58 +50,78 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         />
 
         {/* 3. Problem Section (Section 3) */}
-        <ProblemSection />
+        <RevealOnScroll direction="up" delay={80} duration={1000}>
+          <ProblemSection />
+        </RevealOnScroll>
 
         {/* 4. Core Features Section (Section 4) */}
-        <CoreFeaturesSection
-          onLaunchWithQuery={(query, mode) => {
-            if (onLaunchWithScenario) {
-              onLaunchWithScenario(query, mode);
-            } else {
-              onLaunchApp();
-            }
-          }}
-        />
+        <RevealOnScroll direction="up" delay={100} duration={1000}>
+          <CoreFeaturesSection
+            onLaunchWithQuery={(query, mode) => {
+              if (onLaunchWithScenario) {
+                onLaunchWithScenario(query, mode);
+              } else {
+                onLaunchApp();
+              }
+            }}
+          />
+        </RevealOnScroll>
 
         {/* 5. How It Works (Section 5) */}
-        <HowItWorksSection />
+        <RevealOnScroll direction="up" delay={80} duration={1000}>
+          <HowItWorksSection />
+        </RevealOnScroll>
 
         {/* 6. Supported Image Analysis (Section 6) */}
-        <SupportedAnalysisSection
-          onLaunchMode={(mode) => {
-            if (onLaunchWithScenario) {
-              onLaunchWithScenario(undefined, mode);
-            } else {
-              onLaunchApp();
-            }
-          }}
-        />
+        <RevealOnScroll direction="up" delay={100} duration={1000}>
+          <SupportedAnalysisSection
+            onLaunchMode={(mode) => {
+              if (onLaunchWithScenario) {
+                onLaunchWithScenario(undefined, mode);
+              } else {
+                onLaunchApp();
+              }
+            }}
+          />
+        </RevealOnScroll>
 
         {/* 7. Agentic Architecture (Section 7) */}
-        <AgenticArchitectureSection />
+        <RevealOnScroll direction="up" delay={100} duration={1000}>
+          <AgenticArchitectureSection />
+        </RevealOnScroll>
 
         {/* 8. Results Preview (Section 8) */}
-        <ResultsPreviewSection
-          onLaunchWithScenario={() => {
-            if (onLaunchWithScenario) {
-              onLaunchWithScenario("Has the built-up area increased?", "bi-temporal");
-            } else {
-              onLaunchApp();
-            }
-          }}
-        />
+        <RevealOnScroll direction="up" delay={80} duration={1000}>
+          <ResultsPreviewSection
+            onLaunchWithScenario={() => {
+              if (onLaunchWithScenario) {
+                onLaunchWithScenario("Has the built-up area increased?", "bi-temporal");
+              } else {
+                onLaunchApp();
+              }
+            }}
+          />
+        </RevealOnScroll>
 
         {/* 9. Evidence-Grounded AI (Section 9) */}
-        <EvidenceGroundedSection />
+        <RevealOnScroll direction="up" delay={100} duration={1000}>
+          <EvidenceGroundedSection />
+        </RevealOnScroll>
 
         {/* 10. Use Cases (Section 10) */}
-        <UseCasesSection />
+        <RevealOnScroll direction="up" delay={80} duration={1000}>
+          <UseCasesSection />
+        </RevealOnScroll>
 
         {/* 11. Technology / Research (Section 11) */}
-        <TechnologySection />
+        <RevealOnScroll direction="up" delay={90} duration={1000}>
+          <TechnologySection />
+        </RevealOnScroll>
 
         {/* 12. Final CTA (Section 12) */}
-        <LandingCTA onLaunchApp={onLaunchApp} />
+        <RevealOnScroll direction="zoom" delay={120} duration={1000}>
+          <LandingCTA onLaunchApp={onLaunchApp} />
+        </RevealOnScroll>
       </main>
 
       {/* Footer */}
@@ -106,3 +129,5 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     </div>
   );
 };
+
+export default LandingPage;

@@ -22,13 +22,15 @@ interface DashboardLayoutProps {
   onBackToLanding: () => void;
   onUpdateProfile: (updated: UserProfile) => void;
   initialView?: DashboardView;
+  onSignOut?: () => void;
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   user,
   onBackToLanding,
   onUpdateProfile,
-  initialView = 'new-analysis'
+  initialView = 'new-analysis',
+  onSignOut
 }) => {
   const [currentView, setCurrentView] = useState<DashboardView>(initialView);
   const [selectedScenario, setSelectedScenario] = useState<AnalysisScenario>(MOCK_SCENARIOS[0]);
@@ -58,6 +60,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         onBackToLanding={onBackToLanding}
         user={user}
         systemStatus="AI System Ready"
+        onSignOut={onSignOut}
       />
 
       {/* Main Workspace Area (Section 13 of design.md) */}

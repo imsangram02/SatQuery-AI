@@ -58,35 +58,53 @@ export const Footer: React.FC = () => {
             </ul>
           </div>
 
-          {/* Col 3: Foundation Architecture */}
+          {/* Col 3: Application Pages */}
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-900 dark:text-slate-200 mb-3 font-mono">
-              Architecture
+              Application Pages
             </h4>
-            <ul className="space-y-2">
+            <ul className="space-y-1.5 font-mono text-[11px]">
               <li>
-                <span className="text-slate-600 dark:text-slate-400 hover:text-teal-500 transition-colors flex items-center gap-1.5 cursor-pointer">
-                  <FileCode2 className="w-3 h-3 text-slate-400" />
-                  GeoSAM-v3 Foundation Weights
-                </span>
-              </li>
-              <li>
-                <span className="text-slate-600 dark:text-slate-400 hover:text-teal-500 transition-colors flex items-center gap-1.5 cursor-pointer">
+                <a href="#landing" className="text-slate-600 dark:text-slate-400 hover:text-cyan-500 transition-colors flex items-center gap-1.5">
                   <Terminal className="w-3 h-3 text-slate-400" />
-                  STAC API Specification v1.0.0
-                </span>
+                  Landing Page
+                </a>
               </li>
               <li>
-                <span className="text-slate-600 dark:text-slate-400 hover:text-teal-500 transition-colors flex items-center gap-1.5 cursor-pointer">
-                  <Shield className="w-3 h-3 text-slate-400" />
-                  Cloud-Optimized GeoTIFF (COG)
-                </span>
+                <a href="#login" className="text-slate-600 dark:text-slate-400 hover:text-cyan-500 transition-colors flex items-center gap-1.5">
+                  <FileCode2 className="w-3 h-3 text-slate-400" />
+                  Institutional Sign In
+                </a>
               </li>
               <li>
-                <span className="text-slate-600 dark:text-slate-400 hover:text-teal-500 transition-colors flex items-center gap-1.5 cursor-pointer">
+                <a href="#signup" className="text-slate-600 dark:text-slate-400 hover:text-cyan-500 transition-colors flex items-center gap-1.5">
+                  <FileCode2 className="w-3 h-3 text-slate-400" />
+                  Researcher Registration
+                </a>
+              </li>
+              <li>
+                <a href="#dashboard" className="text-slate-600 dark:text-slate-400 hover:text-cyan-500 transition-colors flex items-center gap-1.5">
+                  <Terminal className="w-3 h-3 text-slate-400" />
+                  Analysis Workspace
+                </a>
+              </li>
+              <li>
+                <a href="#models" className="text-slate-600 dark:text-slate-400 hover:text-cyan-500 transition-colors flex items-center gap-1.5">
                   <ExternalLink className="w-3 h-3 text-slate-400" />
-                  OGC Compliant WMS / WMTS Tiling
-                </span>
+                  Models & Specialist Tools
+                </a>
+              </li>
+              <li>
+                <a href="#history" className="text-slate-600 dark:text-slate-400 hover:text-cyan-500 transition-colors flex items-center gap-1.5">
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                  Analysis History & Reports
+                </a>
+              </li>
+              <li>
+                <a href="#errors" className="text-slate-600 dark:text-slate-400 hover:text-cyan-500 transition-colors flex items-center gap-1.5">
+                  <Shield className="w-3 h-3 text-slate-400" />
+                  Error States Diagnostic Lab
+                </a>
               </li>
             </ul>
           </div>

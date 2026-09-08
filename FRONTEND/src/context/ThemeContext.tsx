@@ -15,7 +15,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (saved === 'light' || saved === 'dark') {
       return saved;
     }
-    return 'dark'; // Dark default in slate and teal
+    return 'dark'; // Clean Dark default
   });
 
   useEffect(() => {

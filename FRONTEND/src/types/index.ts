@@ -1,6 +1,6 @@
 export type Theme = 'dark' | 'light';
 
-export type Screen = 'landing' | 'showcase' | 'dashboard' | 'workspace' | 'settings' | 'chat' | 'auth';
+export type Screen = 'landing' | 'showcase' | 'dashboard' | 'workspace' | 'settings' | 'chat' | 'auth' | 'login' | 'signup' | 'forgot-password';
 
 export type SensorType = 
   | 'sentinel-2' 

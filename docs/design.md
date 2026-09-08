@@ -5,7 +5,7 @@ Design the complete frontend UI/UX for **SatQuery AI**, including both:
 1. A professional **Landing Page**
 2. The actual **AI Analysis Dashboard/Application**
 
-This is a serious SIH 2026 project based on the ISRO problem statement:
+This is an advanced remote sensing platform built around the core vision-language specification:
 
 **"SatQuery AI - An Interactive Vision-Language Assistant for Multimodal Remote Sensing Image Analysis through Text Queries."**
 
@@ -884,6 +884,226 @@ Execution Summary
 Generate Report
 ```
 
-The final result should look like a **real, polished, research-grade remote-sensing AI product suitable for an SIH 2026 demonstration**.
+The final result looks like a **real, polished, research-grade remote-sensing AI product ready for production operations and executive demonstrations**.
 
 Build the UI in a modular way so the AI/backend functionality can be integrated later without redesigning the interface.
+
+---
+
+# PART 3 — SYSTEM UPDATES & ENHANCEMENTS INVENTORY
+
+---
+
+# 32. Complete Application Page Map & Multi-Page Architecture
+
+SatQuery AI has been expanded into a fully modular, multi-page web application featuring **12 dedicated operational views and pages** accessible via persistent URL hash routing, responsive navigation headers, and operations sidebar:
+
+| Page Index | Route / Hash | Page Title | Purpose & Scope |
+|---|---|---|---|
+| **01** | `#landing` or `/` | **Public Landing Page** | Public entry point featuring all 12 core product showcase sections, capability previews, and interactive CTAs. |
+| **02** | `#login` / `#signin` | **Dedicated Institutional Login Page** | Standalone authentication view for remote sensing researchers with email/password, session caching, and demo 1-click test button. |
+| **03** | `#signup` / `#register` | **Dedicated Researcher Registration Page** | Standalone registration portal capturing researcher credentials, laboratory/agency name, and STAC API tier selection. |
+| **04** | `#forgot-password` | **Credential Recovery Page** | Institutional account recovery portal with dispatch simulation and security token verification. |
+| **05** | `#oauth-google` / `#oauth-github` | **OAuth 2.0 Handshake Bridge** | Popup/redirect OAuth flow handling cross-origin message passing (`SATQUERY_OAUTH_SUCCESS`) for Google and GitHub accounts. |
+| **06** | `#dashboard` / `#new-analysis` | **New Analysis Workspace** | The flagship agentic analysis workspace supporting multi-modal raster uploads (GeoTIFF/TIFF/PNG/JPEG), query dispatch, and live pipeline visualization. |
+| **07** | `#history` | **Analysis History Registry** | Searchable and filterable registry of all executed inferences with task metadata, calibrated confidence, and quick report downloads. |
+| **08** | `#reports` | **Mission Reports Dossier** | Comprehensive report generator and inspection interface with printable dossiers, JSON telemetry export, and stakeholder summaries. |
+| **09** | `#models` | **Models & Specialist Tools Directory** | Detailed inventory of the 6 specialized AI models (RS-VQA, RS-Captioning, Grounding, Change Detection, Change VQA, Optical+SAR) with benchmarks and task launchers. |
+| **10** | `#canvas` / `#workspace` | **3-Pane GIS Interactive Canvas** | High-precision geospatial GIS studio featuring a Layer staging dock, multi-spectral viewport (True Color, NIR, NDVI, NDWI, SAR Dual-Pol), and telemetry HUD. |
+| **11** | `#errors` | **Error Diagnostics & Graceful Recovery Lab** | Diagnostic simulation environment covering all 7 deterministic failure states with actionable technical remediation guides. |
+| **12** | `#settings` | **Platform Calibration & Settings** | Configuration portal for model confidence thresholds, cloud-mask strictness, STAC API endpoints, and API key management. |
+
+---
+
+# 33. Dedicated Authentication Pages & Identity Architecture
+
+In addition to optional modal overlays for rapid testing, the platform provides first-class dedicated Auth Pages (`AuthPage.tsx`) designed specifically for research and defense workflows:
+
+### A. Institutional Login Page (`#login`)
+* **Secure Credential Inputs**: Validated email and password fields with visibility toggles and focus ring indicators.
+* **Evaluator Quick Login**: Single-click demo bypass logging in as **Dr. Maya Chen (Lead EO Analyst)** for friction-free jury evaluation.
+* **Persistent Session State**: `sessionStorage` credential persistence with `rememberMe` support.
+* **SSO Federation**: Direct integration markers for **ESA Copernicus SSO** and **NASA Earthdata Login**.
+* **Federated OAuth**: Support for Google and GitHub accounts via popups or embedded modals.
+
+### B. Researcher Registration Page (`#signup`)
+* **Academic Identity Profiling**: Capture Full Name, Academic Title, and Laboratory / Space Agency (e.g. *ISRO Space Applications Centre*).
+* **STAC API Quota Tier Selection**:
+  * *Academic Researcher*: Free tier with 2TB monthly bottom-of-atmosphere quota.
+  * *Institutional Lab*: Multi-seat tier with 10TB multi-spectral and C-Band radar throughput.
+  * *Enterprise Planetary Dedicated*: Dedicated STAC cluster with real-time sub-meter telemetry feeds.
+* **Open Science Compliance**: Agreement to CEOS (Committee on Earth Observation Satellites) and NASA ARD open science licensing.
+
+### C. Password Recovery Page (`#forgot-password`)
+* Single-use institutional token dispatch simulation.
+* Actionable inline notification confirming dispatch to registered institutional address.
+* Seamless navigational return to login.
+
+---
+
+# 34. Background Cartography & Animation Removal Architecture
+
+In strict accordance with Section 27 of this specification (*"Avoid: Excessive animations"*):
+* **Elimination of Continuous Animation Loops**:
+  * Removed all infinite keyframe loops including `star-twinkle`, `satellite-glide`, `telemetry-flow`, `orbit-pulse`, `neon-glow-pulse`, and `particle-drift`.
+  * Removed SVG `<animateMotion>` and continuous scaling transformations.
+* **Scientific Geospatial Vector Art**:
+  * Transitioned background components (`CosmicOrbitBackground.tsx` and `GeospatialBackground.tsx`) to **clean, static, high-resolution SVG cartography**.
+  * Retained precise orbital arcs, satellite body geometries, nadir scan cones, and coordinate graticules in a crisp, static state.
+* **Benefits**:
+  * Zero continuous CPU/GPU thread utilization on background canvas.
+  * No visual distraction during complex raster interpretation and split-slider comparisons.
+  * Maximum readability and battery efficiency across laptops and workstations.
+
+---
+
+# 35. Scroll-Driven Interaction System ("Reveal on Scroll")
+
+To achieve a modern, tactile, research-grade presentation without background motion clutter, SatQuery AI implements a dedicated **Scroll-Driven Reveal System**:
+
+### Component Architecture (`RevealOnScroll.tsx`)
+* **Observer Engine**: Leverages the high-performance browser `IntersectionObserver` API to monitor elements as they scroll into the viewport.
+* **Configurable Transition Parameters**:
+  * `direction`: Configurable directional entry (`'up'`, `'down'`, `'left'`, `'right'`, `'zoom'`, `'fade'`).
+  * `delay`: Millisecond stagger offset enabling sequential cascading card reveals.
+  * `duration`: Smooth cubic-bezier transition timing (`1000ms` default for measured, high-end visibility).
+  * `threshold`: Viewport intersection ratio (`0.12` default).
+  * `rootMargin`: Lookahead margin (`0px 0px -40px 0px`) ensuring elements activate before reaching the center.
+* **Accessibility Compliance**: Fully honors `prefers-reduced-motion: reduce` by immediately revealing content without motion for users requiring accessibility accommodations.
+* **Hero Section Granular Integration (`LandingHero.tsx`)**:
+  * *Announcement Pill*: Floats down with `direction="down" delay={100} duration={1000}`.
+  * *Main Headings & Mission Copy*: Glides up with `direction="up" delay={200} duration={1000}`.
+  * *High-Engagement CTA Action Buttons*: Glides up with `direction="up" delay={350} duration={1000}`.
+  * *Sophisticated Telemetry & Visual Comparison Showcase*: Reveals upon scroll with `direction="up" delay={250} duration={1000} threshold={0.08}`.
+* **Coverage**: Integrated granularly within the Hero Section, across all subsequent landing page sections (Problem, Core Features, How It Works, Supported Analysis, Architecture, Results Preview, Grounded Evidence, Use Cases, Tech Stack, Final CTA), and global dashboard registries.
+
+---
+
+# 36. Complete Frontend File Structure & Component Inventory
+
+```text
+FRONTEND/
+├── src/
+│   ├── components/
+│   │   ├── auth/
+│   │   │   ├── AuthModal.tsx             # Inline modal login/signup dialog
+│   │   │   ├── AuthPage.tsx              # Dedicated full-page Auth suite (Login, Signup, Recovery)
+│   │   │   └── OAuthModal.tsx            # OAuth handshake & popup bridge
+│   │   │
+│   │   ├── common/
+│   │   │   └── RevealOnScroll.tsx        # IntersectionObserver scroll reveal component
+│   │   │
+│   │   ├── landing/
+│   │   │   ├── LandingPage.tsx           # Orchestrator for all 12 landing page sections
+│   │   │   ├── LandingNavbar.tsx         # Sticky navigation header with theme & auth buttons
+│   │   │   ├── LandingHero.tsx           # Section 2: Hero section & agent visual
+│   │   │   ├── ProblemSection.tsx        # Section 3: Traditional vs SatQuery AI comparison
+│   │   │   ├── CoreFeaturesSection.tsx   # Section 4: 6 core capability feature cards
+│   │   │   ├── HowItWorksSection.tsx     # Section 5: 5-step interactive workflow
+│   │   │   ├── SupportedAnalysisSection.tsx # Section 6: Single, Bi-temporal, and Optical+SAR
+│   │   │   ├── AgenticArchitectureSection.tsx # Section 7: Controller & model routing diagram
+│   │   │   ├── ResultsPreviewSection.tsx # Section 8: Realistic mock analysis interface
+│   │   │   ├── EvidenceGroundedSection.tsx # Section 9: Grounded evidence visualizer
+│   │   │   ├── UseCasesSection.tsx       # Section 10: 8 application domains
+│   │   │   ├── TechnologySection.tsx     # Section 11: Technical stack & research components
+│   │   │   ├── LandingCTA.tsx            # Section 12: Final conversion CTA banner
+│   │   │   └── CosmicOrbitBackground.tsx # Static vector space & satellite cartography
+│   │   │
+│   │   ├── dashboard/
+│   │   │   ├── DashboardLayout.tsx       # Sections 13-14: Two-column responsive dashboard shell
+│   │   │   ├── DashboardSidebar.tsx      # Section 14: Operations sidebar with "● AI System Ready"
+│   │   │   ├── NewAnalysisWorkspace.tsx  # Sections 15-22: Core agentic analysis workspace
+│   │   │   ├── ImageUploader.tsx         # Section 16: Multi-modal raster upload dock
+│   │   │   ├── QueryBox.tsx              # Section 18: Natural language query bar with presets
+│   │   │   ├── AgentProcessingView.tsx   # Section 19: Step-by-step agentic execution tracker
+│   │   │   ├── EvidenceViewer.tsx        # Section 21: Split-slider, side-by-side & bbox viewer
+│   │   │   ├── ExecutionSummary.tsx      # Section 22: Expandable execution trace dossier
+│   │   │   ├── ModelsAndToolsView.tsx    # Section 23: 6 specialist AI engines directory
+│   │   │   ├── AnalysisHistoryView.tsx   # Section 24: Operational analysis registry table
+│   │   │   ├── ReportsView.tsx           # Section 25: Mission briefing report generator
+│   │   │   └── ErrorStatesView.tsx       # Section 26: 7 failure scenarios simulation lab
+│   │   │
+│   │   ├── workspace/
+│   │   │   ├── WorkspaceView.tsx         # Interactive 3-pane GIS studio
+│   │   │   ├── GeospatialCanvas.tsx      # Multi-spectral layer canvas & coordinate HUD
+│   │   │   ├── StagingPanel.tsx          # Raster staging dock & AOI selector
+│   │   │   ├── WorkspaceHeader.tsx       # GIS header controls & band mode toggles
+│   │   │   └── AgentChatbox.tsx          # Dedicated GIS conversational agent
+│   │   │
+│   │   ├── chat/
+│   │   │   ├── FloatingChatWidget.tsx    # Draggable floating copilot
+│   │   │   └── DedicatedChatView.tsx     # Fullscreen conversational assistant
+│   │   │
+│   │   ├── settings/
+│   │   │   └── SettingsView.tsx          # Confidence thresholds & STAC configuration
+│   │   │
+│   │   └── layout/
+│   │       ├── Footer.tsx                # Global footer with all page links
+│   │       └── GeospatialBackground.tsx  # Clean static vector background
+│   │
+│   ├── context/
+│   │   └── ThemeContext.tsx              # Light / Dark mode state provider
+│   │
+│   ├── services/
+│   │   └── oauthService.ts               # OAuth state and popup manager
+│   │
+│   ├── data/
+│   │   └── mockData.ts                   # Realistic remote sensing scenarios and benchmarks
+│   │
+│   ├── types/
+│   │   └── index.ts                      # TypeScript definitions for STAC, tasks, and models
+│   │
+│   ├── App.tsx                           # Master client router & screen controller
+│   ├── main.tsx                          # Vite React DOM entry point
+│   └── index.css                         # Tailwind CSS & Reveal on Scroll styles
+│
+└── docs/
+    └── design.md                         # Complete SatQuery AI architectural specification
+```
+
+---
+
+# 37. Authentic Aerospace & Earth Observation Color Architecture
+
+To establish an authentic, research-grade visual identity and eliminate generic "vibe-coded" aesthetics (neon glows, fluorescent magenta halos, and ambient blur artifacts), SatQuery AI implements a purposeful, high-contrast **Aerospace & Earth Observation Color System**:
+
+### 1. Rejection of "Vibe-Coded" Clichés & Architecture Simplification
+* **Removal of Palette Switcher**: The interactive theme palette switcher has been completely dismantled. Rather than superficial color re-skins, the platform employs a single, cohesive visual system calibrated specifically for Earth observation and remote sensing workflows.
+* **Elimination of Neon Halos**: Stripped out all oversaturated neon cyan (`#06b6d4`/`#22d3ee`), fluorescent magenta, fuzzy `blur-3xl` ambient light blobs, and glowing multi-color shadows that create eye fatigue during imagery analysis.
+* **Scientific Clarity**: Replaced with clean, crisp elevation shadows (`shadow-sm`, `shadow-md`, `shadow-xl`), authentic vector grid lines, and high-contrast typography.
+
+### 2. Core Operational Color Combinations & Semantics
+The color system reflects the exact spectrum used in professional satellite telemetry, multispectral remote sensing, and aerospace mission control:
+
+1. **Aerospace Royal Blue (`#2563eb` / `#1d4ed8` / dark: `#3b82f6`)**
+   * *Role*: Primary actions, active navigation tabs, mission control chrome, and authoritative telemetry.
+   * *Rationale*: Grounded, authoritative, and legible; avoids the washed-out readability issues of neon cyan.
+
+2. **Earth Vegetation & Radar Emerald (`#10b981` / `#059669` / `#047857`)**
+   * *Role*: NDVI/vegetation metrics, SAR coherence, verified detections, confidence badges (>90%), and confirmation actions.
+   * *Rationale*: Directly references bi-temporal Earth observation indices and false-color satellite compositing.
+
+3. **Solar Thermal Amber (`#f59e0b` / `#d97706` / `#b45309`)**
+   * *Role*: Thermal anomalies, AI agent processing status, warning indicators, and bounding box highlights.
+   * *Rationale*: Resembles solar telemetry and thermal infrared detection channels without being alarmist.
+
+4. **Deep Space Indigo (`#4f46e5` / `#4338ca` / dark: `#818cf8`)**
+   * *Role*: Multi-model routing steps, STAC metadata tags, secondary pipeline highlights, and gradient transitions.
+   * *Rationale*: Provides depth and contrast against dark backgrounds without introducing neon artifacting.
+
+5. **Precision Neutral Slate (`#0b0f19` / `#0f172a` / `#1e293b` / `#f8fafc`)**
+   * *Role*: High-contrast background canvas, card surfaces, and borders.
+   * *Rationale*: Pure dark slate background prevents color contamination when inspecting raster imagery, spectral bands, and split-slider comparisons.
+
+### 3. Technical Implementation & Tailwind Token Mapping
+* **Direct Tailwind Color Mapping (`tailwind.config.js`)**:
+  * `cyan` is mapped directly to the vibrant **Aerospace Royal Blue** scale (`50: #eff6ff` to `600: #2563eb`, `700: #1d4ed8`, `950: #0f172a`).
+  * `teal` is mapped directly to the **Earth Vegetation Emerald** scale (`50: #ecfdf5` to `500: #10b981`, `600: #059669`, `950: #022c22`).
+  * `brand` is mapped to **Aerospace Royal Blue**, ensuring all existing components across the application render consistently without neon tints.
+* **Component Styling (`index.css`)**:
+  * `.btn-primary`: Solid Royal Blue (`bg-blue-600 hover:bg-blue-500 active:bg-blue-700`) with clean `shadow-sm`.
+  * `.btn-gradient`: Royal Blue to Deep Space Indigo (`from-blue-600 via-indigo-600 to-blue-700`) with high-contrast text.
+  * `.theme-heading-gradient`: Balanced 3-stop aerospace gradient (`#2563eb` -> `#4f46e5` -> `#d97706` in light mode; `#60a5fa` -> `#818cf8` -> `#f59e0b` in dark mode).
+  * `.btn-outline-teal`: Crisp emerald border (`border-emerald-500/50`) and text (`text-emerald-700 dark:text-emerald-400`).
+* **Light / Dark Mode**:
+  * Maintained via clean, lightweight `ThemeContext.tsx` toggling the `.dark` class on `document.documentElement` with `localStorage` persistence (`satquery_theme`). All multi-palette dynamic CSS variables have been removed in favor of direct Tailwind utility classes.

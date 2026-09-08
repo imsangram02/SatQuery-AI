@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Satellite, Sun, Moon, ArrowRight, Menu, X, Sparkles } from 'lucide-react';
+import { Satellite, Sun, Moon, ArrowRight, Menu, X, Sparkles, LogIn } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
 interface LandingNavbarProps {
   onLaunchApp: () => void;
-  onOpenAuth?: () => void;
+  onOpenAuth?: (tab?: 'signin' | 'signup') => void;
+  onNavigateToAuth?: (page: 'login' | 'signup') => void;
 }
 
-export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onLaunchApp }) => {
+export const LandingNavbar: React.FC<LandingNavbarProps> = ({
+  onLaunchApp,
+  onOpenAuth,
+  onNavigateToAuth
+}) => {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
   const [isScrolled, setIsScrolled] = useState(false);
@@ -41,6 +46,17 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onLaunchApp }) => 
     }
   };
 
+  const handleGoToAuth = (tab: 'login' | 'signup') => {
+    setMobileMenuOpen(false);
+    if (onNavigateToAuth) {
+      onNavigateToAuth(tab);
+    } else if (onOpenAuth) {
+      onOpenAuth(tab === 'login' ? 'signin' : 'signup');
+    } else {
+      window.location.hash = tab;
+    }
+  };
+
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -63,9 +79,6 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onLaunchApp }) => 
             <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
               SatQuery<span className="text-cyan-500 dark:text-cyan-400">AI</span>
             </span>
-            <span className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase rounded bg-cyan-500/10 dark:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
-              SIH 2026
-            </span>
           </div>
         </a>
 
@@ -84,24 +97,35 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onLaunchApp }) => 
           ))}
         </nav>
 
-        {/* Right: Theme Toggle & Launch SatQuery AI CTA */}
-        <div className="flex items-center gap-3">
-          {/* Celestial Theme Toggle Switch */}
+        {/* Right: Theme Toggle, Auth Buttons, & Launch SatQuery AI CTA */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Theme Toggle Switch */}
           <button
             type="button"
             onClick={toggleTheme}
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-cyan-500 dark:hover:text-cyan-400 hover:border-cyan-500/30 transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-cyan-500 dark:hover:text-cyan-400 hover:border-cyan-500/30 hover:scale-105 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             title={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
             aria-label="Toggle theme mode"
           >
             {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
           </button>
 
-          {/* Primary CTA: Launch SatQuery AI */}
+          {/* Dedicated Sign In Button with smooth hover */}
+          <button
+            type="button"
+            onClick={() => handleGoToAuth('login')}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl text-slate-700 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-slate-100 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-cyan-400/50 hover:scale-105 hover:-translate-y-0.5 transition-all duration-200 active:scale-95"
+            title="Sign In"
+          >
+            <LogIn className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+            <span>Sign In</span>
+          </button>
+
+          {/* Primary CTA: Launch SatQuery AI with glowing hover */}
           <button
             type="button"
             onClick={onLaunchApp}
-            className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 via-teal-400 to-indigo-500 hover:from-cyan-300 hover:via-teal-300 hover:to-indigo-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(34,211,238,0.35)] hover:shadow-[0_0_28px_rgba(34,211,238,0.55)] transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-cyan-400 via-teal-400 to-indigo-500 hover:from-cyan-300 hover:via-teal-300 hover:to-indigo-400 text-slate-950 font-bold text-xs sm:text-sm flex items-center gap-2 shadow-[0_0_20px_rgba(34,211,238,0.35)] hover:shadow-[0_0_30px_rgba(34,211,238,0.6)] hover:scale-105 hover:-translate-y-0.5 active:scale-95 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-950 stroke-[2.5]" />
             <span>Launch SatQuery AI</span>
@@ -133,7 +157,14 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onLaunchApp }) => 
               {link.label}
             </a>
           ))}
-          <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+            <button
+              onClick={() => handleGoToAuth('login')}
+              className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 font-bold text-sm flex items-center justify-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-900"
+            >
+              <LogIn className="w-4 h-4 text-cyan-500" />
+              <span>Sign In / Register</span>
+            </button>
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
@@ -150,3 +181,5 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onLaunchApp }) => 
     </header>
   );
 };
+
+export default LandingNavbar;
