@@ -124,3 +124,138 @@ export interface ModelConfidenceSettings {
   preferredProjection: 'EPSG:4326' | 'EPSG:3857' | 'UTM-Auto';
   autoCogOptimization: boolean;
 }
+
+/* ========================================================================= */
+/* SATQUERY AI DESIGN.MD SPECIFICATION TYPES                                 */
+/* ========================================================================= */
+
+export type DashboardView = 
+  | 'new-analysis' 
+  | 'history' 
+  | 'reports' 
+  | 'models' 
+  | 'settings' 
+  | 'canvas' 
+  | 'errors';
+
+export type AnalysisTaskType = 
+  | 'vqa' 
+  | 'captioning' 
+  | 'grounding' 
+  | 'change-analysis' 
+  | 'change-vqa' 
+  | 'optical-sar';
+
+export type ImageAnalysisMode = 
+  | 'single' 
+  | 'bi-temporal' 
+  | 'optical-sar';
+
+export interface UploadedImageMeta {
+  id: string;
+  name: string;
+  format: 'GeoTIFF' | 'TIFF' | 'PNG' | 'JPEG';
+  dimensions: string;
+  modality: 'Optical BOA' | 'SAR VV/VH' | 'Panchromatic' | 'SWIR / NBR';
+  acquisitionDate: string;
+  sizeMb: number;
+  validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Valid Benchmark Raster' | 'Error';
+  previewVisual?: string;
+  previewUrl?: string;
+}
+
+export interface AgentProcessStep {
+  id: string;
+  title: string;
+  detail?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+}
+
+export interface AnalysisResultData {
+  id: string;
+  query: string;
+  task: string;
+  taskType: AnalysisTaskType;
+  mode: ImageAnalysisMode;
+  answer: string;
+  confidence: number;
+  confidenceLevel: 'High' | 'Medium' | 'Low';
+  timestamp: string;
+  modelsUsed: string[];
+  executionSummary: {
+    task: string;
+    inputSummary: string;
+    selectedTools: string[];
+    pipeline: string[];
+    latencyMs: number;
+    status: 'Completed' | 'Failed';
+    details?: string;
+  };
+  evidence: {
+    type: AnalysisTaskType;
+    imageA?: { visual: string; label: string; date?: string; bounds?: string };
+    imageB?: { visual: string; label: string; date?: string; bounds?: string };
+    changeMap?: { visual: string; label: string; legend?: string };
+    fusedResult?: { visual: string; label: string; details?: string };
+    boundingBoxes?: Array<{
+      id: string;
+      label: string;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      color: string;
+      confidence: number;
+    }>;
+    stats?: Array<{ label: string; value: string; delta?: string }>;
+  };
+}
+
+export interface ModelToolCardInfo {
+  id: string;
+  name: string;
+  taskType: AnalysisTaskType;
+  description: string;
+  status: 'Ready' | 'Active' | 'Optimized';
+  supportedInput: string;
+  architecture: string;
+  precision: string;
+  latencyMs: number;
+  benchmarkMetric: string;
+  badge: string;
+}
+
+export interface ReportItem {
+  id: string;
+  title: string;
+  query: string;
+  date: string;
+  task: string;
+  confidence: number;
+  answer: string;
+  modelsUsed: string[];
+  executionTime: string;
+  status: 'Archived' | 'Generated';
+  inputSummary: string;
+  evidenceVisual?: string;
+  tags: string[];
+  fullAnalysis?: AnalysisResultData;
+}
+
+export interface ErrorScenario {
+  id: string;
+  title: string;
+  type: 
+    | 'invalid-file' 
+    | 'unsupported-format' 
+    | 'wrong-image-count' 
+    | 'incompatible-pair' 
+    | 'missing-metadata' 
+    | 'model-unavailable' 
+    | 'analysis-failure';
+  errorMessage: string;
+  diagnosticDetail: string;
+  suggestedFix: string;
+  remediationAction: string;
+}
+
