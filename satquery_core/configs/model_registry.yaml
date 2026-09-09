@@ -1,0 +1,75 @@
+# ==============================================================================
+# SatQuery AI — Deep Learning Model Registry & Architecture Configurations
+# ==============================================================================
+
+version: "1.0.0"
+description: "Specialist deep learning backbone definitions for offline satellite imagery reasoning."
+
+global_settings:
+  preferred_device: "cuda"          # Automatically falls back to 'cpu' if CUDA is unavailable
+  tile_size: 512                   # Standard sliding window inference tile size [pixels]
+  tile_overlap: 64                 # Overlap stride margin to suppress edge stitching artifacts
+  default_dtype: "float32"
+
+models:
+  # ----------------------------------------------------------------------------
+  # 1. Single Image Specialist: ConvNeXt-v2 Feature Extractor
+  # ----------------------------------------------------------------------------
+  single_image_s2:
+    architecture: "convnextv2_tiny"
+    specialist_type: "SingleImageSpecialist"
+    modality: "optical"
+    input_channels: 12             # Full Sentinel-2 Level-2A 12-band stack
+    feature_dim: 768
+    num_classes: 8                 # Water, Urban, Dense Forest, Shrubland, Cropland, Barren, Snow/Ice, Cloud
+    pretrained: false              # Offline operation: weights loaded locally or initialized cleanly
+    checkpoint_path: "models/checkpoints/convnextv2_s2_tiny.pt"
+    normalization:
+      mean: [0.15, 0.14, 0.13, 0.12, 0.16, 0.22, 0.25, 0.27, 0.28, 0.05, 0.21, 0.13]
+      std: [0.08, 0.07, 0.08, 0.08, 0.09, 0.11, 0.12, 0.12, 0.13, 0.03, 0.10, 0.08]
+
+  single_image_s1:
+    architecture: "convnextv2_nano"
+    specialist_type: "SingleImageSpecialist"
+    modality: "sar"
+    input_channels: 2              # Dual-pol Sentinel-1 (VV, VH) in calibrated decibels
+    feature_dim: 640
+    num_classes: 6                 # Open Water, Flooded Land, Urban Double-Bounce, Forest, Bare Soil, Noise
+    pretrained: false
+    checkpoint_path: "models/checkpoints/convnextv2_s1_nano.pt"
+    normalization:
+      mean: [-12.5, -19.0]         # Empirical dB mean for terrestrial C-band VV and VH
+      std: [4.5, 4.0]              # Empirical dB standard deviation
+
+  # ----------------------------------------------------------------------------
+  # 2. Change Detection Specialist: ResNet-50 Siamese Difference Engine
+  # ----------------------------------------------------------------------------
+  siamese_change_detection:
+    architecture: "siamese_resnet50"
+    specialist_type: "ChangeDetectionSpecialist"
+    modality: "bitemporal"
+    input_channels_per_time: 4     # Pre/Post Blue, Green, Red, NIR (or dual-pol SAR)
+    backbone_weights: "offline"
+    checkpoint_path: "models/checkpoints/siamese_resnet50_change.pt"
+    feature_difference_mode: "abs_diff_concat"  # Concatenates [|F_t2 - F_t1|, F_t1, F_t2]
+    head_hidden_dim: 256
+    num_classes: 2                 # 0: Unchanged, 1: Significant Land-cover Change
+    decision_threshold: 0.50
+
+  # ----------------------------------------------------------------------------
+  # 3. Cross-Modal Fusion Specialist: ViT Base 14-Channel Joint Optical-SAR
+  # ----------------------------------------------------------------------------
+  cross_modal_fusion:
+    architecture: "vit_base_patch16_14ch"
+    specialist_type: "CrossModalSpecialist"
+    modality: "multimodal_optical_sar"
+    input_channels: 14             # 12 Optical bands (S2) + 2 SAR bands (S1 VV, VH)
+    patch_size: 16
+    embed_dim: 768
+    depth: 12
+    num_heads: 12
+    mlp_ratio: 4.0
+    num_classes: 10                # Inundated Urban, Clean Water, Agriculture, Silt Inundation, etc.
+    checkpoint_path: "models/checkpoints/vit_base_14ch_fusion.pt"
+    fusion_strategy: "early_spectral_stem_with_cross_attention"
+    dropout_rate: 0.1
