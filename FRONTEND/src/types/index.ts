@@ -132,9 +132,11 @@ export interface ModelConfidenceSettings {
 
 export type DashboardView = 
   | 'new-analysis' 
+  | 'models'
+  | 'chat'
+  | 'workspace'
   | 'history' 
   | 'reports' 
-  | 'models' 
   | 'settings';
 
 export type AnalysisTaskType = 

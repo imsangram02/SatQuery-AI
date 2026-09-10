@@ -83,12 +83,6 @@ export const Footer: React.FC = () => {
                 </a>
               </li>
               <li>
-                <a href="#models" className="text-slate-600 dark:text-[#A8B6CF] hover:text-[#5B8CFF] transition-colors flex items-center gap-1.5">
-                  <ExternalLink className="w-3 h-3 text-slate-400 dark:text-[#A8B6CF]" />
-                  Models & Specialist Tools
-                </a>
-              </li>
-              <li>
                 <a href="#history" className="text-slate-600 dark:text-[#A8B6CF] hover:text-[#5B8CFF] transition-colors flex items-center gap-1.5">
                   <ExternalLink className="w-3 h-3 text-slate-400 dark:text-[#A8B6CF]" />
                   Analysis History & Reports

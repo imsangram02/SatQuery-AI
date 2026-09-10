@@ -36,7 +36,7 @@ function AppContent() {
       if (['login', 'signin'].includes(hash)) return 'login';
       if (['signup', 'register'].includes(hash)) return 'signup';
       if (['forgot-password', 'reset-password'].includes(hash)) return 'forgot-password';
-      if (['dashboard', 'history', 'reports', 'models', 'settings'].includes(hash)) {
+      if (['dashboard', 'history', 'reports', 'settings'].includes(hash)) {
         return 'dashboard';
       }
     }
@@ -49,7 +49,6 @@ function AppContent() {
       const hash = window.location.hash.replace('#', '');
       if (hash === 'history') return 'history';
       if (hash === 'reports') return 'reports';
-      if (hash === 'models') return 'models';
       if (hash === 'settings') return 'settings';
     }
     return 'new-analysis';
@@ -100,11 +99,10 @@ function AppContent() {
         setCurrentScreen('signup');
       } else if (['forgot-password', 'reset-password'].includes(rawHash)) {
         setCurrentScreen('forgot-password');
-      } else if (['dashboard', 'history', 'reports', 'models', 'settings'].includes(rawHash)) {
+      } else if (['dashboard', 'history', 'reports', 'settings'].includes(rawHash)) {
         setCurrentScreen('dashboard');
         if (rawHash === 'history') setDashboardView('history');
         else if (rawHash === 'reports') setDashboardView('reports');
-        else if (rawHash === 'models') setDashboardView('models');
         else if (rawHash === 'settings') setDashboardView('settings');
         else setDashboardView('new-analysis');
       } else {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
   Download, 
@@ -14,13 +14,41 @@ import {
 } from 'lucide-react';
 import { ReportItem } from '../../types';
 import { MOCK_SAVED_REPORTS } from '../../data/mockData';
+import { SatQueryApiService } from '../../services/apiService';
 
 interface ReportsViewProps {
   customReports?: ReportItem[];
 }
 
 export const ReportsView: React.FC<ReportsViewProps> = ({ customReports = [] }) => {
-  const allReports = [...customReports, ...MOCK_SAVED_REPORTS];
+  const [serverReports, setServerReports] = useState<ReportItem[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    SatQueryApiService.getReports().then(reps => {
+      if (mounted && reps && reps.length > 0) {
+        const mapped: ReportItem[] = reps.map(r => ({
+          id: r.id,
+          title: r.title,
+          query: r.query,
+          date: r.date,
+          task: r.task,
+          confidence: r.confidence,
+          answer: r.answer,
+          modelsUsed: r.modelsUsed,
+          executionTime: r.executionTime,
+          status: (r.status as any) || 'Generated',
+          inputSummary: r.inputSummary,
+          evidenceVisual: r.evidenceVisual,
+          tags: r.tags,
+        }));
+        setServerReports(mapped);
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const allReports = [...customReports, ...serverReports, ...MOCK_SAVED_REPORTS];
   const [selectedReport, setSelectedReport] = useState<ReportItem | null>(allReports[0]);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -173,7 +201,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ customReports = [] }) 
               </span>
               <div
                 className="h-44 sm:h-52 rounded-xl relative overflow-hidden border border-slate-300 dark:border-slate-700 p-4 flex flex-col justify-between"
-                style={{ background: selectedReport.evidenceVisual || 'linear-gradient(135deg, #0f172a, #0369a1)' }}
+                style={{
+                  background: selectedReport.evidenceVisual
+                    ? (selectedReport.evidenceVisual.startsWith('http') || selectedReport.evidenceVisual.startsWith('/')
+                        ? `url("${selectedReport.evidenceVisual}") center/cover no-repeat`
+                        : selectedReport.evidenceVisual)
+                    : 'linear-gradient(135deg, #0f172a, #0369a1)'
+                }}
               >
                 <div className="absolute inset-0 geo-grid-pattern opacity-40 pointer-events-none" />
                 <span className="relative z-10 px-2.5 py-0.5 rounded bg-slate-950/80 text-xs font-mono text-slate-200 self-start">

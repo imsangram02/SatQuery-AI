@@ -1,0 +1,87 @@
+{
+  "metadata": {
+    "report_id": "SATQUERY-7D4591EF",
+    "timestamp": "2026-09-10T18:42:59.091561+00:00",
+    "crs": "EPSG:4326",
+    "bounds": [
+      81.5,
+      16.5,
+      81.75,
+      16.75
+    ]
+  },
+  "query_text": "Map water extents and reservoir expansion",
+  "task_type": "change_detection",
+  "summary_text": "🛰️ Bi-Temporal Multitemporal Change Forensic (CDVQA Specialization):\n• Direct VQA Answer: Significant land-cover transformation delineated across 71,105.96 hectares (62,792 pixels, 95.8% scene footprint).\n• Spatial Localization: Concentrated predominantly in the Central sector of the scene (62,792 px, centroid row 131, col 126).\n• Siamese Change Confidence: 86.1% (BIFOLD ResNet-50)\n\n🎯 Localized Grounding Bounding Boxes (1 regions identified):\n  • [bb-1] Central sector: coordinates [7, 16, 246, 250] (583.4 ha, 86% conf)\n\nQuery: 'Map water extents and reservoir expansion'\n\n• Physical & Radiometric Verification:\n  Deterministic radiometric verification (VERIFIED): Spectral bounds consistent with physical Earth Observation reflectance.\n\n• Forensic Trace:\n  Agentic Controller: Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)\n  Specialist Backbone: BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0\n  Task Routing: change_detection | Latency: 164.4 ms.",
+  "statistics": {
+    "detected_pixel_count": 62792,
+    "total_pixels": 65536,
+    "area_hectares": 71105.956,
+    "mean_probability": 0.861,
+    "coverage_percentage": 95.81,
+    "bounding_boxes": [
+      {
+        "id": "bb-1",
+        "label": "Land_Cover_Change (86%)",
+        "sector": "Central",
+        "pixel_box": [
+          7,
+          16,
+          246,
+          250
+        ],
+        "pixel_count": 58340,
+        "area_hectares": 583.4,
+        "solidity": 1.034,
+        "x": 2.7,
+        "y": 6.2,
+        "width": 93.8,
+        "height": 91.8,
+        "color": "#ef4444",
+        "confidence": 86
+      }
+    ],
+    "specialist_metadata": {
+      "target_class": "land_cover_change",
+      "specialist": "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0",
+      "model_identifier": "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0",
+      "architecture": "Shared-weight Siamese ResNet-50 network",
+      "changed_pixel_count": 62792,
+      "total_pixels": 65536,
+      "change_percentage": 95.81,
+      "mean_change_probability": 0.861,
+      "change_location": "Concentrated predominantly in the Central sector of the scene (62,792 px, centroid row 131, col 126)",
+      "physical_deltas": {
+        "mean_channel_0_delta": 0.0
+      }
+    }
+  },
+  "audit_trace": {
+    "trace_id": "7d4591ef-5e38-4673-8c39-e2f59c87ef04",
+    "timestamp": "2026-09-10T18:42:59.091561+00:00",
+    "task_type": "change_detection",
+    "controller_model": "Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)",
+    "specialist_model": "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0",
+    "input_shapes": {
+      "primary_raw": [
+        12,
+        256,
+        256
+      ]
+    },
+    "preprocessing_applied": [
+      "primary_calibrated_surface_reflectance"
+    ],
+    "physics_checks": [],
+    "execution_time_ms": 164.42,
+    "verdict": "VERIFIED"
+  },
+  "artifacts": {
+    "input_image_path": "E:\\SatQuery-AI\\data\\inputs\\samples\\sentinel2_godavari_pre.tif",
+    "secondary_image_path": null,
+    "mask_image_path": "E:\\SatQuery-AI\\data\\outputs\\masks\\pred_7d4591ef_1789065779_mask.png",
+    "heatmap_image_path": "E:\\SatQuery-AI\\data\\outputs\\heatmaps\\pred_7d4591ef_1789065779_heatmap.png",
+    "overlay_image_path": "E:\\SatQuery-AI\\data\\outputs\\overlays\\pred_7d4591ef_1789065779_overlay.png",
+    "geojson_path": "E:\\SatQuery-AI\\data\\outputs\\geojson\\pred_7d4591ef_1789065779_vectors.geojson"
+  }
+}

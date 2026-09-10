@@ -23,6 +23,7 @@ import {
   ReportItem 
 } from '../../types';
 import { AnalysisScenario, MOCK_SCENARIOS, MOCK_SAVED_REPORTS } from '../../data/mockData';
+import { SatQueryApiService, AnalyzeResult } from '../../services/apiService';
 
 interface NewAnalysisWorkspaceProps {
   initialScenario?: AnalysisScenario;
@@ -38,10 +39,32 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
   // Default to the first scenario (Urban Expansion Change VQA from Section 8 of design.md)
   const defaultScenario = initialScenario || MOCK_SCENARIOS[0];
 
-  const [mode, setMode] = useState<ImageAnalysisMode>(defaultScenario.mode);
-  const [images, setImages] = useState<UploadedImageMeta[]>(defaultScenario.images);
-  const [query, setQuery] = useState(defaultScenario.defaultQuery);
+  const [mode, setMode] = useState<ImageAnalysisMode>('single');
+  const [images, setImages] = useState<UploadedImageMeta[]>([]);
+  const [query, setQuery] = useState('');
   const [activeScenario, setActiveScenario] = useState<AnalysisScenario>(defaultScenario);
+
+  // System Auto-Detection of Analysis Mode based on staged imagery
+  useEffect(() => {
+    if (images.length <= 1) {
+      setMode('single');
+      return;
+    }
+
+    // 2 or more images
+    const isFirstSar = images[0]?.name.toLowerCase().includes('sar') || 
+                       images[0]?.name.toLowerCase().includes('s1') || 
+                       images[0]?.modality?.toLowerCase().includes('sar');
+    const isSecondSar = images[1]?.name.toLowerCase().includes('sar') || 
+                        images[1]?.name.toLowerCase().includes('s1') || 
+                        images[1]?.modality?.toLowerCase().includes('sar');
+
+    if ((isFirstSar && !isSecondSar) || (!isFirstSar && isSecondSar)) {
+      setMode('optical-sar');
+    } else {
+      setMode('bi-temporal');
+    }
+  }, [images]);
 
   // Analysis State
   const [isProcessing, setIsProcessing] = useState(false);
@@ -49,13 +72,13 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
   const [currentResult, setCurrentResult] = useState<AnalysisResultData | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Step definition from Section 19 of design.md
+  // Step definition from Section 19 of design.md with auto-routed specialist
   const agentSteps: AgentProcessStep[] = [
     { id: '1', title: 'Input validated', detail: 'Raster tags and CRS EPSG projection confirmed', status: 'completed' },
     { id: '2', title: 'Query understood', detail: 'Semantic intent & referential targets extracted', status: 'completed' },
-    { id: '3', title: 'Task identified', detail: `${activeScenario.taskType.toUpperCase()} Pipeline dispatched`, status: 'completed' },
-    { id: '4', title: 'Specialist model selected', detail: activeScenario.result.modelsUsed[0] || 'RS-VLM Model', status: 'completed' },
-    { id: '5', title: 'Running analysis...', detail: 'TensorRT-LLM sub-second inference running', status: 'running' },
+    { id: '3', title: 'Mode auto-detected', detail: `${mode === 'bi-temporal' ? 'BI-TEMPORAL CHANGE DETECTION' : mode === 'optical-sar' ? 'OPTICAL + SAR CROSS-MODAL' : 'SINGLE IMAGE GROUNDING'} pipeline auto-routed`, status: 'completed' },
+    { id: '4', title: 'Specialist model selected', detail: mode === 'bi-temporal' ? 'Siamese ResNet-50 (Bi-Temporal)' : mode === 'optical-sar' ? '14-Channel ViT (Optical+SAR)' : 'ConvNeXt-v2 Optical/SAR Specialist', status: 'completed' },
+    { id: '5', title: 'Running analysis...', detail: 'Offline deep learning specialist inference running', status: 'running' },
     { id: '6', title: 'Generating visual evidence', detail: 'Extracting bounding boxes & difference heatmap', status: 'pending' },
     { id: '7', title: 'Preparing response', detail: 'Correlating confidence and execution summary', status: 'pending' }
   ];
@@ -94,44 +117,23 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
     setTimeout(() => setProcessingStepIndex(4), 1100);
     setTimeout(() => setProcessingStepIndex(5), 1400);
 
-    let realApiResult: any = null;
+    let realApiResult: AnalyzeResult | null = null;
 
     try {
-      // Check if user uploaded a real file or if we should call backend
       const primaryFile = images[0]?.fileObject;
       const primaryServerPath = images[0]?.serverPath || images[0]?.name;
+      const secondaryFile = images[1]?.fileObject;
+      const secondaryServerPath = images[1]?.serverPath || images[1]?.name;
 
-      const formData = new FormData();
-      formData.append('query_text', query);
-      formData.append('confidence_threshold', '0.45');
-      formData.append('enable_physics_verification', 'true');
-
-      if (primaryFile) {
-        formData.append('file', primaryFile);
-      } else if (primaryServerPath) {
-        formData.append('image_path', primaryServerPath);
-      } else {
-        formData.append('image_path', 'data/inputs/samples/sentinel2_godavari_pre.tif');
-      }
-
-      if (images.length > 1) {
-        const secondaryFile = images[1]?.fileObject;
-        const secondaryServerPath = images[1]?.serverPath || images[1]?.name;
-        if (secondaryFile) {
-          formData.append('secondary_file', secondaryFile);
-        } else if (secondaryServerPath) {
-          formData.append('secondary_image_path', secondaryServerPath);
-        }
-      }
-
-      const res = await fetch('http://127.0.0.1:8000/api/analyze', {
-        method: 'POST',
-        body: formData,
+      realApiResult = await SatQueryApiService.runAnalysis({
+        queryText: query,
+        imagePath: primaryServerPath,
+        file: primaryFile,
+        secondaryImagePath: secondaryServerPath,
+        secondaryFile: secondaryFile,
+        confidenceThreshold: 0.45,
+        enablePhysicsVerification: true
       });
-
-      if (res.ok) {
-        realApiResult = await res.json();
-      }
     } catch {
       // Backend offline or unreachable; fall back to client benchmark
     }
@@ -145,13 +147,13 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
         const stats = realApiResult.statistics;
         const audit = realApiResult.audit_trace;
         const urls = realApiResult.urls;
-        const overlayUrl = urls?.overlay_url ? `http://127.0.0.1:8000${urls.overlay_url}` : undefined;
+        const overlayUrl = urls?.overlay_url || undefined;
 
         const newResultData: AnalysisResultData = {
           id: `AN-${audit.trace_id?.slice(0, 8) || Date.now().toString().slice(-4)}`,
           query,
           task: `${realApiResult.task_type.replace(/_/g, ' ').toUpperCase()} Reasoning`,
-          taskType: realApiResult.task_type,
+          taskType: (realApiResult.task_type as any) || 'grounding',
           mode,
           answer: realApiResult.summary_text,
           confidence: Math.round((stats.mean_probability || 0.85) * 100),
@@ -163,25 +165,25 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
             inputSummary: `Analysis of ${images[0]?.name || 'Satellite Scene'} (${stats.detected_pixel_count.toLocaleString()} pixels delineated)`,
             selectedTools: ['Radiometric Calibration', audit.specialist_model, 'Physics Index Verifier', 'GeoJSON Vectorizer'],
             pipeline: ['Ingestion', 'Radiometric Calibration', 'Specialist Neural Inference', 'Physics Sanity Verification', 'Report Synthesis'],
-            latencyMs: audit.execution_time_ms || 120,
+            latencyMs: Math.round(audit.execution_time_ms) || 68,
             status: 'Completed',
             details: `Physics Grounding Verdict: ${audit.verdict}`
           },
           evidence: {
-            type: realApiResult.task_type,
+            type: (realApiResult.task_type as any) || 'grounding',
             imageA: {
-              visual: (realApiResult.primary_preview_url ? `http://127.0.0.1:8000${realApiResult.primary_preview_url}` : undefined) || images[0]?.previewUrl || activeScenario.result.evidence.imageA?.visual || 'linear-gradient(135deg, #1e293b, #334155)',
+              visual: realApiResult.primary_preview_url || images[0]?.previewUrl || activeScenario.result.evidence.imageA?.visual || 'linear-gradient(135deg, #1e293b, #334155)',
               label: images[0]?.name || 'Primary Input Raster'
             },
             imageB: (images.length > 1 || realApiResult.secondary_preview_url) ? {
-              visual: (realApiResult.secondary_preview_url ? `http://127.0.0.1:8000${realApiResult.secondary_preview_url}` : undefined) || images[1]?.previewUrl || activeScenario.result.evidence.imageB?.visual || 'linear-gradient(135deg, #020617, #1e293b)',
+              visual: realApiResult.secondary_preview_url || images[1]?.previewUrl || activeScenario.result.evidence.imageB?.visual || 'linear-gradient(135deg, #020617, #1e293b)',
               label: images[1]?.name || 'Secondary Raster (T2 / SAR)'
             } : activeScenario.result.evidence.imageB,
             changeMap: overlayUrl ? {
               visual: overlayUrl,
               label: `Actual Neural Detection Overlay (${stats.area_hectares.toFixed(1)} ha)`
             } : activeScenario.result.evidence.changeMap,
-            boundingBoxes: (realApiResult.bounding_boxes && realApiResult.bounding_boxes.length > 0) ? realApiResult.bounding_boxes : stats.bounding_boxes,
+            boundingBoxes: (realApiResult.bounding_boxes && realApiResult.bounding_boxes.length > 0) ? realApiResult.bounding_boxes as any : stats.bounding_boxes as any,
             stats: [
               { label: 'Surface Extent', value: `${stats.area_hectares.toFixed(2)} ha` },
               { label: 'Pixel Count', value: `${stats.detected_pixel_count.toLocaleString()} px` },
@@ -189,10 +191,31 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
               { label: 'Physics Verdict', value: audit.verdict }
             ]
           },
-          artifacts: realApiResult.artifacts,
-          urls: realApiResult.urls
+          artifacts: realApiResult.artifacts as any,
+          urls: realApiResult.urls as any
         };
         setCurrentResult(newResultData);
+
+        // Automatically push completed report to saved reports
+        if (onSaveReport) {
+          const autoReport: ReportItem = {
+            id: `rep-${audit.trace_id?.slice(0, 8) || Date.now().toString().slice(-4)}`,
+            title: `${newResultData.task}: ${query.slice(0, 45)}...`,
+            query: newResultData.query,
+            date: new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC',
+            task: newResultData.task,
+            confidence: newResultData.confidence,
+            answer: newResultData.answer,
+            modelsUsed: newResultData.modelsUsed,
+            executionTime: `${newResultData.executionSummary.latencyMs} ms`,
+            status: 'Generated',
+            inputSummary: newResultData.executionSummary.inputSummary,
+            evidenceVisual: overlayUrl || newResultData.evidence.imageA?.visual,
+            tags: [newResultData.task, newResultData.mode],
+            fullAnalysis: newResultData
+          };
+          onSaveReport(autoReport);
+        }
       } else {
         // Fallback simulation
         const newResultData: AnalysisResultData = {
@@ -282,11 +305,9 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
       {/* 16 & 17. Image Upload & Dynamic Configuration */}
       <ImageUploader
         mode={mode}
-        onChangeMode={setMode}
         images={images}
         onAddImage={handleAddImage}
         onRemoveImage={handleRemoveImage}
-        onSelectScenario={handleSelectScenario}
       />
 
       {/* 18. Natural Language Query */}
