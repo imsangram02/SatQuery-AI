@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import uuid
 
 import numpy as np
+from PIL import Image
 from shapely.geometry import mapping, shape, Polygon
 from shapely.ops import unary_union
 
@@ -80,6 +81,212 @@ class SatQueryEngine:
             else:
                 raise ValueError(f"Unknown specialist model: '{specialist_name}'")
         return self._specialists[specialist_name]
+
+    ANTI_HALLUCINATION_SYSTEM_PROMPT: str = (
+        "You are an exact geospatial extraction AI. Look at the image. "
+        "If the requested target (e.g., water, buildings, vegetation) is NOT clearly visible, "
+        "you must reply 'TARGET_NOT_FOUND'. Do not guess. Do not invent features."
+    )
+
+    @staticmethod
+    def _prepare_vlm_image(
+        raster_tensor: Any,
+        band_aliases: Optional[List[str]] = None,
+    ) -> Image.Image:
+        """
+        Helper method that extracts the RED, GREEN, and BLUE bands, normalizes the 16-bit data
+        (divide by 10000.0, clip between 0 and 1, multiply by 255), and converts it into a standard
+        8-bit PIL Image. The Qwen3-VL processor MUST receive this PIL image, NOT the raw numpy array.
+
+        Args:
+            raster_tensor: Input raster data as a NumPy array or PyTorch Tensor (C, H, W) or (H, W, C).
+            band_aliases: Optional list of spectral band names (e.g. ['B01', 'B02', ...], ['RED', 'GREEN', 'BLUE']).
+
+        Returns:
+            Standard 8-bit RGB PIL Image.
+        """
+        # Convert torch Tensor to numpy if needed
+        if hasattr(raster_tensor, "detach") and hasattr(raster_tensor, "cpu"):
+            arr = raster_tensor.detach().cpu().numpy()
+        else:
+            arr = np.asarray(raster_tensor)
+
+        # Handle 2D arrays (single band) -> (1, H, W)
+        if arr.ndim == 2:
+            arr = np.expand_dims(arr, axis=0)
+        elif arr.ndim == 3:
+            # Handle channels-last (H, W, C)
+            if arr.shape[2] in (1, 2, 3, 4, 12, 13) and arr.shape[0] > arr.shape[2]:
+                arr = np.transpose(arr, (2, 0, 1))
+
+        c, h, w = arr.shape
+        aliases_upper = [str(b).strip().upper() for b in band_aliases] if band_aliases else []
+
+        # Find RED band index
+        r_idx = None
+        for cand in ["RED", "B04", "B4", "R"]:
+            if cand in aliases_upper:
+                r_idx = aliases_upper.index(cand)
+                break
+
+        # Find GREEN band index
+        g_idx = None
+        for cand in ["GREEN", "B03", "B3", "G"]:
+            if cand in aliases_upper:
+                g_idx = aliases_upper.index(cand)
+                break
+
+        # Find BLUE band index
+        b_idx = None
+        for cand in ["BLUE", "B02", "B2", "B"]:
+            if cand in aliases_upper:
+                b_idx = aliases_upper.index(cand)
+                break
+
+        # Fallback indices based on standard satellite band orderings
+        if c >= 12:
+            # Sentinel-2 MSI: B04 (Red, idx 3), B03 (Green, idx 2), B02 (Blue, idx 1)
+            if r_idx is None:
+                r_idx = 3
+            if g_idx is None:
+                g_idx = 2
+            if b_idx is None:
+                b_idx = 1
+        elif c >= 4:
+            # 4-band RGB-NIR
+            if r_idx is None:
+                r_idx = 0
+            if g_idx is None:
+                g_idx = 1
+            if b_idx is None:
+                b_idx = 2
+        elif c == 3:
+            # Standard 3-band RGB
+            if r_idx is None:
+                r_idx = 0
+            if g_idx is None:
+                g_idx = 1
+            if b_idx is None:
+                b_idx = 2
+        elif c == 2:
+            # 2-band SAR (VV, VH)
+            if r_idx is None:
+                r_idx = 0
+            if g_idx is None:
+                g_idx = 1
+            if b_idx is None:
+                b_idx = 0
+        else:
+            # Single-band
+            if r_idx is None:
+                r_idx = 0
+            if g_idx is None:
+                g_idx = 0
+            if b_idx is None:
+                b_idx = 0
+
+        # Bound indices within array shape
+        r_idx = max(0, min(c - 1, r_idx))
+        g_idx = max(0, min(c - 1, g_idx))
+        b_idx = max(0, min(c - 1, b_idx))
+
+        red = arr[r_idx].astype(np.float32)
+        green = arr[g_idx].astype(np.float32)
+        blue = arr[b_idx].astype(np.float32)
+
+        def _normalize_band(band: np.ndarray) -> np.ndarray:
+            clean = np.nan_to_num(band, nan=0.0, posinf=1.0, neginf=0.0)
+            # Normalize 16-bit data: divide by 10000.0, clip between 0 and 1, multiply by 255
+            if np.issubdtype(arr.dtype, np.integer) or np.nanmax(clean) > 1.0:
+                norm = clean / 10000.0
+            else:
+                norm = clean
+            return np.clip(norm, 0.0, 1.0) * 255.0
+
+        r_norm = _normalize_band(red)
+        g_norm = _normalize_band(green)
+        b_norm = _normalize_band(blue)
+
+        rgb_stacked = np.stack([r_norm, g_norm, b_norm], axis=-1)
+        pil_image = Image.fromarray(rgb_stacked.astype(np.uint8), mode="RGB")
+        return pil_image
+
+    def query_vlm(
+        self,
+        image: Union[Image.Image, np.ndarray, Any],
+        query: str,
+        band_aliases: Optional[List[str]] = None,
+        fallback_text: Optional[str] = None,
+    ) -> str:
+        """
+        Sends user query to Qwen3-VL wrapped in strict anti-hallucination system context:
+        'You are an exact geospatial extraction AI. Look at the image. If the requested target
+        (e.g., water, buildings, vegetation) is NOT clearly visible, you must reply 'TARGET_NOT_FOUND'.
+        Do not guess. Do not invent features.'
+
+        The Qwen3-VL processor MUST receive this standard 8-bit PIL Image, NOT the raw numpy array.
+
+        Args:
+            image: 8-bit PIL Image, NumPy array, or GeoTIFF raster tensor.
+            query: User natural language query prompt.
+            band_aliases: Optional band aliases if array conversion is required.
+            fallback_text: Pre-synthesized technical summary if 7B weights are offline.
+
+        Returns:
+            VLM text response.
+        """
+        # Ensure image is an 8-bit PIL Image
+        if not isinstance(image, Image.Image):
+            pil_image = self._prepare_vlm_image(image, band_aliases=band_aliases)
+        else:
+            pil_image = image
+
+        system_context = self.ANTI_HALLUCINATION_SYSTEM_PROMPT
+
+        decoder = getattr(self.router, "decoder", None)
+        if (
+            decoder
+            and getattr(decoder, "is_loaded", False)
+            and decoder.model is not None
+            and decoder.processor is not None
+        ):
+            try:
+                import torch
+
+                messages = [
+                    {"role": "system", "content": system_context},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image", "image": pil_image},
+                            {"type": "text", "text": query},
+                        ],
+                    },
+                ]
+                # The Qwen3-VL processor MUST receive this PIL image, NOT the raw numpy array
+                if hasattr(decoder.processor, "apply_chat_template"):
+                    prompt = decoder.processor.apply_chat_template(
+                        messages, tokenize=False, add_generation_prompt=True
+                    )
+                    inputs = decoder.processor(text=[prompt], images=[pil_image], return_tensors="pt")
+                else:
+                    full_prompt = f"{system_context}\n\nUser: {query}\nAssistant:"
+                    inputs = decoder.processor(images=pil_image, text=full_prompt, return_tensors="pt")
+
+                device = getattr(decoder.model, "device", "cpu")
+                inputs = {k: v.to(device) for k, v in inputs.items()}
+                with torch.no_grad():
+                    generated_ids = decoder.model.generate(**inputs, max_new_tokens=256)
+                response = decoder.processor.batch_decode(
+                    generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+                )[0]
+                return response.strip()
+            except Exception:
+                pass
+
+        return fallback_text if fallback_text is not None else ""
+
+    _query_vlm = query_vlm
 
     def execute_query(
         self,
@@ -297,16 +504,28 @@ class SatQueryEngine:
             tensor_dict["NIR"] = primary_calibrated.get_band(2)
         if primary_calibrated.count <= 2:
             tensor_dict["VV"] = primary_calibrated.get_band(1)
+            if primary_calibrated.count == 2:
+                tensor_dict["VH"] = primary_calibrated.get_band(2)
+
+        if secondary_calibrated is not None:
+            if secondary_calibrated.count <= 2 and "VV" not in tensor_dict:
+                tensor_dict["VV"] = secondary_calibrated.get_band(1)
+            elif secondary_calibrated.count >= 8 and "GREEN" not in tensor_dict:
+                tensor_dict["GREEN"] = secondary_calibrated.get_band(3)
+                tensor_dict["RED"] = secondary_calibrated.get_band(4)
+                tensor_dict["NIR"] = secondary_calibrated.get_band(8)
 
         eval_bbox = [0, 0, max(0, primary_calibrated.width - 1), max(0, primary_calibrated.height - 1)]
         if boxes:
             eval_bbox = boxes[0]["pixel_box"]
 
+        # 3. Physics Rejection Gatekeeper
         physics_gatekeeper = verify_detection_physics(
             tensor_dict=tensor_dict,
             bbox=eval_bbox,
             target=target_lbl,
         )
+        is_verified = bool(physics_gatekeeper.get("is_verified", True)) if (boxes or np.sum(binary_mask) > 0) else True
 
         statistics = {
             "detected_pixel_count": int(np.sum(binary_mask)),
@@ -320,6 +539,7 @@ class SatQueryEngine:
             "coverage_percentage": float(round((np.sum(binary_mask) / binary_mask.size) * 100.0, 2)),
             "bounding_boxes": boxes,
             "specialist_metadata": spec_meta,
+            "is_physics_verified": is_verified,
         }
 
         specialist_model_id = (
@@ -338,12 +558,62 @@ class SatQueryEngine:
             verdict=overall_verdict,
         )
 
-        summary_text = self._synthesize_summary(
+        # 1. VLM Image Normalizer (Safety Mechanism 1)
+        # Converts 16-bit raster data to 8-bit PIL Image for Qwen3-VL processor
+        vlm_pil_image = self._prepare_vlm_image(
+            raster_tensor=primary_raw.array,
+            band_aliases=band_aliases,
+        )
+
+        base_vlm_answer = self._synthesize_summary(
             request=request,
             routing=routing,
             statistics=statistics,
             audit=audit_trace,
         )
+
+        # 2. Anti-Hallucination Prompting (Safety Mechanism 2)
+        vlm_response = self.query_vlm(
+            image=vlm_pil_image,
+            query=request.query_text,
+            band_aliases=band_aliases,
+            fallback_text=base_vlm_answer,
+        )
+        if not vlm_response:
+            vlm_response = base_vlm_answer
+
+        # 3. Physics Rejection Logic (Safety Mechanism 3)
+        # In the main execution flow, after the specialist/VLM proposes a bounding box,
+        # run the verify_detection_physics function.
+        if boxes:
+            if not is_verified:
+                # IF is_verified is False: Override the VLM's text response
+                summary_text = (
+                    "AI detected a potential target, but the physics engine (NDWI/NDVI) "
+                    "rejected it as a hallucination. No valid target found."
+                )
+                overall_verdict = "REJECTED"
+                audit_trace.verdict = overall_verdict
+                verified_geojson = {
+                    "type": "FeatureCollection",
+                    "crs": geojson_fc.get("crs", {"type": "name", "properties": {"name": str(primary_calibrated.crs)}}),
+                    "features": [],
+                }
+            else:
+                # IF is_verified is True: Return the VLM's response along with the verified GeoJSON
+                summary_text = vlm_response
+                verified_geojson = geojson_fc
+        else:
+            if vlm_response.strip() == "TARGET_NOT_FOUND":
+                summary_text = "TARGET_NOT_FOUND"
+                verified_geojson = {
+                    "type": "FeatureCollection",
+                    "crs": geojson_fc.get("crs", {"type": "name", "properties": {"name": str(primary_calibrated.crs)}}),
+                    "features": [],
+                }
+            else:
+                summary_text = vlm_response
+                verified_geojson = geojson_fc
 
         # ----------------------------------------------------------------------
         # Step 8: Visual Artifact & Analytical Report Persistence
@@ -393,7 +663,7 @@ class SatQueryEngine:
             # 4. Save Vector RFC 7946 GeoJSON
             geojson_path = geojson_dir / f"{file_prefix}_vectors.geojson"
             with open(geojson_path, "w", encoding="utf-8") as f:
-                json.dump(geojson_fc, f, indent=2)
+                json.dump(verified_geojson, f, indent=2)
 
             # 5. Build Comprehensive Report Data
             report_data = {
@@ -443,7 +713,7 @@ class SatQueryEngine:
             query_text=request.query_text,
             task_type=routing.task_type,
             summary_text=summary_text,
-            geojson=geojson_fc,
+            geojson=verified_geojson,
             statistics=statistics,
             audit_trace=audit_trace,
             artifacts=artifacts,

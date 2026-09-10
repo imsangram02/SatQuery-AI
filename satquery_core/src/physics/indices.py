@@ -385,7 +385,7 @@ def verify_detection_physics(
     target_clean = target.lower().strip()
 
     # 1. Physical test for water: Water strongly absorbs infrared light
-    if target_clean in {"water", "flooded_land", "open_water", "lake", "river"}:
+    if any(k in target_clean for k in ["water", "flood", "lake", "river", "aqua", "wetland"]):
         green = _get_band(["GREEN", "B03", "B3"])
         nir = _get_band(["NIR", "B08", "B8", "B8A", "B4"])
         sar_vv = _get_band(["VV", "B1"])
@@ -453,7 +453,7 @@ def verify_detection_physics(
             }
 
     # 2. Physical test for vegetation: Healthy plants reflect infrared light very strongly
-    elif target_clean in {"vegetation", "crop", "cropland", "forest", "dense_forest", "agriculture"}:
+    elif any(k in target_clean for k in ["vegetation", "crop", "forest", "dense_forest", "agriculture", "tree", "plant"]):
         red = _get_band(["RED", "B04", "B3"])
         nir = _get_band(["NIR", "B08", "B8", "B8A", "B4"])
 
@@ -491,34 +491,35 @@ def verify_detection_physics(
             }
 
     # 3. Physical test for buildings/urban structures
-    swir = _get_band(["SWIR1", "B11", "SWIR-1"])
-    nir = _get_band(["NIR", "B08", "B8", "B4"])
-    if swir is not None and nir is not None:
-        h, w = swir.shape
-        x0, x1 = max(0, min(w - 1, x_min)), max(0, min(w - 1, x_max))
-        y0, y1 = max(0, min(h - 1, y_min)), max(0, min(h - 1, y_max))
+    elif any(k in target_clean for k in ["urban", "building", "structure", "city", "built", "settlement", "concrete"]):
+        swir = _get_band(["SWIR1", "B11", "SWIR-1"])
+        nir = _get_band(["NIR", "B08", "B8", "B4"])
+        if swir is not None and nir is not None:
+            h, w = swir.shape
+            x0, x1 = max(0, min(w - 1, x_min)), max(0, min(w - 1, x_max))
+            y0, y1 = max(0, min(h - 1, y_min)), max(0, min(h - 1, y_max))
 
-        sub_s = swir[y0 : y1 + 1, x0 : x1 + 1]
-        sub_n = nir[y0 : y1 + 1, x0 : x1 + 1]
-        ndbi = (sub_s - sub_n) / (sub_s + sub_n + 1e-6)
-        mean_val = float(np.mean(ndbi)) if ndbi.size > 0 else 0.0
-        pos_frac = float(np.mean(ndbi > -0.10)) if ndbi.size > 0 else 0.0
-        is_verified = bool(pos_frac >= 0.35)
-        explanation = (
-            f"Building test passed: Concrete and roofing light reflections confirm man-made structures."
-            if is_verified else
-            f"Building test uncertain."
-        )
-        return {
-            "is_verified": is_verified,
-            "target": target,
-            "index_name": "Building Index (NDBI)",
-            "mean_index_value": round(mean_val, 2),
-            "agreement_percentage": round(pos_frac * 100.0, 1),
-            "threshold": -0.10,
-            "bbox": [x0, y0, x1, y1],
-            "easy_explanation": explanation,
-        }
+            sub_s = swir[y0 : y1 + 1, x0 : x1 + 1]
+            sub_n = nir[y0 : y1 + 1, x0 : x1 + 1]
+            ndbi = (sub_s - sub_n) / (sub_s + sub_n + 1e-6)
+            mean_val = float(np.mean(ndbi)) if ndbi.size > 0 else 0.0
+            pos_frac = float(np.mean(ndbi > -0.10)) if ndbi.size > 0 else 0.0
+            is_verified = bool(pos_frac >= 0.35)
+            explanation = (
+                f"Building test passed: Concrete and roofing light reflections confirm man-made structures."
+                if is_verified else
+                f"Building test uncertain."
+            )
+            return {
+                "is_verified": is_verified,
+                "target": target,
+                "index_name": "Building Index (NDBI)",
+                "mean_index_value": round(mean_val, 2),
+                "agreement_percentage": round(pos_frac * 100.0, 1),
+                "threshold": -0.10,
+                "bbox": [x0, y0, x1, y1],
+                "easy_explanation": explanation,
+            }
 
     return {
         "is_verified": True,
