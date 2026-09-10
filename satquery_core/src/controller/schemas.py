@@ -139,6 +139,18 @@ class AuditTrace(BaseModel):
     verdict: str = Field(default="UNVERIFIED", description="VERIFIED, REJECTED, or PARTIAL")
 
 
+class OutputArtifacts(BaseModel):
+    """File storage paths for generated prediction images, vector layers, and reports."""
+    input_image_path: Optional[str] = Field(default=None, description="Path where input image was uploaded or read from")
+    secondary_image_path: Optional[str] = Field(default=None, description="Path where secondary image was uploaded or read from")
+    mask_image_path: Optional[str] = Field(default=None, description="Path where binary prediction mask is saved")
+    heatmap_image_path: Optional[str] = Field(default=None, description="Path where probability heatmap is saved")
+    overlay_image_path: Optional[str] = Field(default=None, description="Path where visual evidence overlay image is saved")
+    geojson_path: Optional[str] = Field(default=None, description="Path where RFC 7946 GeoJSON vector file is saved")
+    report_json_path: Optional[str] = Field(default=None, description="Path where structured JSON analysis report is saved")
+    report_markdown_path: Optional[str] = Field(default=None, description="Path where formatted Markdown analysis report is saved")
+
+
 class EngineOutput(BaseModel):
     """Unified response emitted by the master SatQueryEngine."""
     query_text: str
@@ -151,3 +163,7 @@ class EngineOutput(BaseModel):
         default_factory=dict, description="Quantitative summary (area in hectares, pixel counts, etc.)"
     )
     audit_trace: AuditTrace
+    artifacts: Optional[OutputArtifacts] = Field(
+        default=None, description="Generated output artifact file paths (masks, heatmaps, overlays, reports)"
+    )
+

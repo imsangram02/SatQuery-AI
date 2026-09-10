@@ -12,9 +12,46 @@ import tempfile
 from typing import Tuple
 
 import numpy as np
-import rasterio
-from rasterio.crs import CRS
-from rasterio.transform import from_bounds
+
+try:
+    import rasterio
+    from rasterio.crs import CRS
+    from rasterio.transform import from_bounds
+    HAS_RASTERIO = True
+except Exception:
+    HAS_RASTERIO = False
+    from affine import Affine
+
+    def from_bounds(west: float, south: float, east: float, north: float, width: int, height: int) -> Affine:
+        x_res = (east - west) / max(1, width)
+        y_res = (north - south) / max(1, height)
+        return Affine(x_res, 0.0, west, 0.0, -y_res, north)
+
+    class CRS:
+        def __init__(self, val: str = "EPSG:4326") -> None:
+            self.val = str(val)
+
+        @classmethod
+        def from_epsg(cls, code: int) -> "CRS":
+            return cls(f"EPSG:{code}")
+
+        def __str__(self) -> str:
+            return self.val
+
+
+def write_test_raster(file_path: Path, array: np.ndarray, profile: dict) -> Path:
+    """Write synthetic test raster using rasterio or tifffile fallback."""
+    if HAS_RASTERIO:
+        try:
+            with rasterio.open(file_path, "w", **profile) as dst:
+                dst.write(array)
+            return file_path
+        except Exception:
+            pass
+
+    import tifffile
+    tifffile.imwrite(str(file_path), array)
+    return file_path
 
 # Ensure root repository is in sys.path for direct CLI execution
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -40,26 +77,23 @@ def create_synthetic_s2_geotiff(
     Generate a synthetic 12-channel 16-bit Sentinel-2 Level-2A GeoTIFF.
     Embeds realistic surface reflectance (DN = reflectance * 10000) with a circular water body.
     """
-    # 12 channels matching Sentinel-2 band registry
-    # B01(Coastal), B02(Blue), B03(Green), B04(Red), B05-B07(RedEdge), B08(NIR), B8A(NIR-narrow), B09(Vapour), B11(SWIR1), B12(SWIR2)
-    array = np.full((12, height, width), 2000, dtype=np.uint16)  # Default bare/mixed background
+    array = np.full((12, height, width), 2000, dtype=np.uint16)
 
-    # Background vegetation: High NIR (B08 = channel 8), Moderate Green (B03 = channel 3), Low Red (B04 = channel 4)
-    array[2, :, :] = 1200   # Green (0.12 reflectance)
-    array[3, :, :] = 800    # Red (0.08 reflectance)
-    array[7, :, :] = 4500   # NIR (0.45 reflectance) -> NDVI ~ (0.45 - 0.08)/(0.45 + 0.08) = 0.698 (Dense veg)
+    # Background vegetation
+    array[2, :, :] = 1200   # Green
+    array[3, :, :] = 800    # Red
+    array[7, :, :] = 4500   # NIR -> NDVI ~ 0.698
 
-    # Embedded water body (circle in center): High Green, Very Low NIR, Low SWIR
+    # Embedded water body (circle in center)
     y_grid, x_grid = np.ogrid[:height, :width]
     center_y, center_x = height // 2, width // 2
     water_mask = (y_grid - center_y) ** 2 + (x_grid - center_x) ** 2 <= (height // 4) ** 2
 
     array[2, water_mask] = 2200   # Green (0.22)
     array[3, water_mask] = 400    # Red (0.04)
-    array[7, water_mask] = 200    # NIR (0.02) -> NDWI = (0.22 - 0.02)/(0.22 + 0.02) = +0.833 (Strong water signal)
+    array[7, water_mask] = 200    # NIR (0.02) -> NDWI = +0.833
     array[10, water_mask] = 100   # SWIR1 (0.01)
 
-    # Spatial georeferencing centered over Godavari delta, India (EPSG:4326)
     left, bottom, right, top = 81.50, 16.50, 81.75, 16.75
     transform = from_bounds(left, bottom, right, top, width, height)
 
@@ -74,10 +108,7 @@ def create_synthetic_s2_geotiff(
         "nodata": 0,
     }
 
-    with rasterio.open(file_path, "w", **profile) as dst:
-        dst.write(array)
-
-    return file_path
+    return write_test_raster(file_path, array, profile)
 
 
 def create_synthetic_s1_geotiff(
@@ -89,16 +120,13 @@ def create_synthetic_s1_geotiff(
     Generate a synthetic 2-channel 16-bit Sentinel-1 SAR GeoTIFF (VV, VH amplitude).
     Embeds low amplitude (specular reflection) over the central water footprint.
     """
-    # Channel 1: VV, Channel 2: VH
-    # Decibel target: Background land ~ -12 dB -> Amplitude = sqrt(10^(-12/10)) = 0.251 -> DN ~ 2510
     array = np.full((2, height, width), 2500, dtype=np.uint16)
 
-    # Water body: Calm water ~ -20 dB -> Amplitude = sqrt(10^(-20/10)) = 0.100 -> DN ~ 1000
     y_grid, x_grid = np.ogrid[:height, :width]
     center_y, center_x = height // 2, width // 2
     water_mask = (y_grid - center_y) ** 2 + (x_grid - center_x) ** 2 <= (height // 4) ** 2
 
-    array[0, water_mask] = 800    # VV amplitude -> Backscatter ~ -22 dB (Low specular return)
+    array[0, water_mask] = 800    # VV amplitude -> Backscatter ~ -22 dB
     array[1, water_mask] = 400    # VH amplitude -> Backscatter ~ -28 dB
 
     left, bottom, right, top = 81.50, 16.50, 81.75, 16.75
@@ -115,10 +143,8 @@ def create_synthetic_s1_geotiff(
         "nodata": 0,
     }
 
-    with rasterio.open(file_path, "w", **profile) as dst:
-        dst.write(array)
+    return write_test_raster(file_path, array, profile)
 
-    return file_path
 
 
 def run_pipeline_tests() -> None:
@@ -140,9 +166,9 @@ def run_pipeline_tests() -> None:
         create_synthetic_s2_geotiff(s2_pre_path)
         create_synthetic_s2_geotiff(s2_post_path)
         create_synthetic_s1_geotiff(s1_sar_path)
-        print("  ✓ Created Sentinel-2 MSI Pre-event 12-band GeoTIFF")
-        print("  ✓ Created Sentinel-2 MSI Post-event 12-band GeoTIFF")
-        print("  ✓ Created Sentinel-1 C-SAR Dual-Pol GeoTIFF")
+        print("  [OK] Created Sentinel-2 MSI Pre-event 12-band GeoTIFF")
+        print("  [OK] Created Sentinel-2 MSI Post-event 12-band GeoTIFF")
+        print("  [OK] Created Sentinel-1 C-SAR Dual-Pol GeoTIFF")
 
         # ----------------------------------------------------------------------
         # Test Case 1: Single Image Optical (Water detection on Sentinel-2)
@@ -161,11 +187,17 @@ def run_pipeline_tests() -> None:
         assert len(opt_output.geojson["features"]) > 0, "Expected at least 1 vectorized polygon"
         assert opt_output.statistics["detected_pixel_count"] > 0, "Expected positive pixel detection"
         assert opt_output.audit_trace.verdict in ["VERIFIED", "PARTIAL"], f"Unexpected verdict: {opt_output.audit_trace.verdict}"
+        assert opt_output.artifacts is not None, "Output artifacts should be generated"
+        assert Path(opt_output.artifacts.mask_image_path).exists(), "Mask image must exist"
+        assert Path(opt_output.artifacts.heatmap_image_path).exists(), "Heatmap image must exist"
+        assert Path(opt_output.artifacts.overlay_image_path).exists(), "Overlay image must exist"
+        assert Path(opt_output.artifacts.report_markdown_path).exists(), "Markdown report must exist"
 
-        print(f"  ✓ Routed correctly to: {opt_output.audit_trace.specialist_model}")
-        print(f"  ✓ Detected Area: {opt_output.statistics['area_hectares']:.2f} ha ({opt_output.statistics['detected_pixel_count']} px)")
-        print(f"  ✓ Physics Verdict: {opt_output.audit_trace.verdict}")
-        print(f"  ✓ Latency: {opt_output.audit_trace.execution_time_ms:.1f} ms")
+        print(f"  [OK] Routed correctly to: {opt_output.audit_trace.specialist_model}")
+        print(f"  [OK] Detected Area: {opt_output.statistics['area_hectares']:.2f} ha ({opt_output.statistics['detected_pixel_count']} px)")
+        print(f"  [OK] Physics Verdict: {opt_output.audit_trace.verdict}")
+        print(f"  [OK] Artifacts generated: Mask, Heatmap, Overlay, GeoJSON, Reports")
+        print(f"  [OK] Latency: {opt_output.audit_trace.execution_time_ms:.1f} ms")
 
         # ----------------------------------------------------------------------
         # Test Case 2: Single Image SAR (Radar backscatter water / flood mapping)
@@ -181,10 +213,10 @@ def run_pipeline_tests() -> None:
         sar_output: EngineOutput = engine.execute_query(sar_query)
         assert sar_output.task_type == TaskType.SINGLE_IMAGE_SAR, "TaskType mismatch"
         assert sar_output.statistics["detected_pixel_count"] > 0
-        print(f"  ✓ Routed correctly to: {sar_output.audit_trace.specialist_model}")
-        print(f"  ✓ Detected Area: {sar_output.statistics['area_hectares']:.2f} ha")
-        print(f"  ✓ Physics Verdict: {sar_output.audit_trace.verdict}")
-        print(f"  ✓ Latency: {sar_output.audit_trace.execution_time_ms:.1f} ms")
+        print(f"  [OK] Routed correctly to: {sar_output.audit_trace.specialist_model}")
+        print(f"  [OK] Detected Area: {sar_output.statistics['area_hectares']:.2f} ha")
+        print(f"  [OK] Physics Verdict: {sar_output.audit_trace.verdict}")
+        print(f"  [OK] Latency: {sar_output.audit_trace.execution_time_ms:.1f} ms")
 
         # ----------------------------------------------------------------------
         # Test Case 3: Change Detection (Siamese ResNet-50)
@@ -201,8 +233,8 @@ def run_pipeline_tests() -> None:
         change_output: EngineOutput = engine.execute_query(change_query)
         assert change_output.task_type == TaskType.CHANGE_DETECTION, "TaskType mismatch"
         assert change_output.audit_trace.specialist_model == "siamese_change_detection"
-        print(f"  ✓ Routed correctly to: {change_output.audit_trace.specialist_model}")
-        print(f"  ✓ Bi-temporal change evaluation completed in {change_output.audit_trace.execution_time_ms:.1f} ms")
+        print(f"  [OK] Routed correctly to: {change_output.audit_trace.specialist_model}")
+        print(f"  [OK] Bi-temporal change evaluation completed in {change_output.audit_trace.execution_time_ms:.1f} ms")
 
         # ----------------------------------------------------------------------
         # Test Case 4: Cross-Modal Fusion (ViT-Base 14-channel Optical + SAR)
@@ -220,10 +252,11 @@ def run_pipeline_tests() -> None:
         assert fusion_output.task_type == TaskType.CROSS_MODAL_FUSION, "TaskType mismatch"
         assert fusion_output.audit_trace.specialist_model == "cross_modal_fusion"
         assert fusion_output.geojson is not None
-        print(f"  ✓ Routed correctly to: {fusion_output.audit_trace.specialist_model}")
-        print(f"  ✓ 14-channel joint tensor processed ({fusion_output.statistics['detected_pixel_count']} px)")
-        print(f"  ✓ Summary Synthesis:\n    \"{fusion_output.summary_text.splitlines()[0]}\"")
-        print(f"  ✓ Latency: {fusion_output.audit_trace.execution_time_ms:.1f} ms")
+        print(f"  [OK] Routed correctly to: {fusion_output.audit_trace.specialist_model}")
+        print(f"  [OK] 14-channel joint tensor processed ({fusion_output.statistics['detected_pixel_count']} px)")
+        print(f"  [OK] Summary Synthesis:\n    \"{fusion_output.summary_text.splitlines()[0]}\"")
+        print(f"  [OK] Latency: {fusion_output.audit_trace.execution_time_ms:.1f} ms")
+
 
     print("\n" + "=" * 80)
     print(" ALL SATQUERY AI PIPELINE TESTS PASSED SUCCESSFULLY! (100% Offline)")

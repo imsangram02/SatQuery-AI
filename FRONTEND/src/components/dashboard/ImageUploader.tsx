@@ -70,6 +70,15 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       const format = isTiff ? 'GeoTIFF' : isPng ? 'PNG' : 'JPEG';
       const isSar = file.name.toLowerCase().includes('sar') || file.name.toLowerCase().includes('s1');
 
+      let previewUrl: string | undefined = undefined;
+      if (isPng || isJpeg) {
+        try {
+          previewUrl = URL.createObjectURL(file);
+        } catch {
+          // ignore in environments without createObjectURL
+        }
+      }
+
       const newImage: UploadedImageMeta = {
         id: `custom-img-${Date.now()}-${i}`,
         name: file.name,
@@ -81,10 +90,13 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         validationStatus: isTiff ? 'Valid GeoTIFF' : 'Valid Benchmark Raster',
         previewVisual: isSar
           ? 'linear-gradient(135deg, #020617 0%, #0f172a 40%, #1e293b 100%)'
-          : 'linear-gradient(135deg, #134e4a 0%, #065f46 45%, #0284c7 100%)'
+          : 'linear-gradient(135deg, #134e4a 0%, #065f46 45%, #0284c7 100%)',
+        previewUrl,
+        fileObject: file
       };
 
       onAddImage(newImage);
+
     }
   };
 

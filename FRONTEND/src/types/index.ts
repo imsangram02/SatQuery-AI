@@ -162,7 +162,10 @@ export interface UploadedImageMeta {
   validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Valid Benchmark Raster' | 'Error';
   previewVisual?: string;
   previewUrl?: string;
+  fileObject?: File;
+  serverPath?: string;
 }
+
 
 export interface AgentProcessStep {
   id: string;
@@ -209,7 +212,10 @@ export interface AnalysisResultData {
     }>;
     stats?: Array<{ label: string; value: string; delta?: string }>;
   };
+  artifacts?: Record<string, string>;
+  urls?: Record<string, string>;
 }
+
 
 export interface ModelToolCardInfo {
   id: string;
