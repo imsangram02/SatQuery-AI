@@ -7,6 +7,9 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      boxShadow: {
+        xs: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+      },
       fontFamily: {
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
         inter: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
@@ -54,6 +57,40 @@ export default {
           800: '#1e40af',
           900: '#1e3a8a',
           950: '#0f172a',
+        },
+        // Premium Space-Tech Design System Tokens
+        space: {
+          bg: '#071426',
+          secondary: '#0B1930',
+          surface: '#101F38',
+          'surface-hover': '#152A48',
+          card: '#101F38',
+          'card-hover': '#152A48',
+          primary: '#5B8CFF',
+          accent: '#7C6CFF',
+          purple: '#7C6CFF',
+          cyan: '#22D3EE',
+          text: '#F5F7FF',
+          muted: '#A8B6CF',
+          subtle: '#71819B',
+          border: '#263B5C',
+          active: '#2DD4BF',
+          warning: '#F5B942',
+        },
+        sat: {
+          bg: '#071426',
+          secondary: '#0B1930',
+          card: '#101F38',
+          cardHover: '#152A48',
+          blue: '#5B8CFF',
+          purple: '#7C6CFF',
+          cyan: '#22D3EE',
+          text: '#F5F7FF',
+          secondaryText: '#A8B6CF',
+          muted: '#71819B',
+          border: '#263B5C',
+          active: '#2DD4BF',
+          warning: '#F5B942',
         }
       }
     },

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, MessageSquare, HelpCircle } from 'lucide-react';
+import { MessageSquare, HelpCircle } from 'lucide-react';
 
 interface QueryBoxProps {
   query: string;
@@ -62,7 +62,6 @@ export const QueryBox: React.FC<QueryBoxProps> = ({
         {/* Action Button Strip */}
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-            <Sparkles className="w-4 h-4 text-cyan-500" />
             <span className="hidden sm:inline">Agent will autonomously route to specialist model</span>
           </div>
 
@@ -70,14 +69,13 @@ export const QueryBox: React.FC<QueryBoxProps> = ({
             type="button"
             onClick={onAnalyze}
             disabled={!query.trim() || isProcessing || disabled}
-            className={`px-5 py-2.5 rounded-xl font-bold font-mono text-xs sm:text-sm flex items-center gap-2 transition-all duration-200 active:scale-95 shadow-md ${
+            className={`px-5 py-2.5 rounded-xl font-bold font-mono text-xs sm:text-sm flex items-center justify-center transition-all duration-200 active:scale-95 shadow-md ${
               query.trim() && !isProcessing && !disabled
                 ? 'bg-gradient-to-r from-cyan-400 via-teal-400 to-indigo-500 hover:from-cyan-300 hover:via-teal-300 hover:to-indigo-400 text-slate-950 shadow-cyan-500/25 hover:shadow-cyan-400/40 cursor-pointer -translate-y-0.5'
                 : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 cursor-not-allowed'
             }`}
           >
-            <Sparkles className="w-4 h-4 text-slate-950 stroke-[2.5]" />
-            <span>✦ Analyze with SatQuery AI</span>
+            <span>Analyze with SatQuery AI</span>
           </button>
         </div>
       </div>

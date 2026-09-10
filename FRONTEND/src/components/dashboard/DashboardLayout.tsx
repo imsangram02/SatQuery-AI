@@ -4,15 +4,12 @@ import { NewAnalysisWorkspace } from './NewAnalysisWorkspace';
 import { ModelsAndToolsView } from './ModelsAndToolsView';
 import { AnalysisHistoryView } from './AnalysisHistoryView';
 import { ReportsView } from './ReportsView';
-import { ErrorStatesView } from './ErrorStatesView';
-import { WorkspaceView } from '../workspace/WorkspaceView';
 import { SettingsView } from '../settings/SettingsView';
 import { 
   DashboardView, 
   UserProfile, 
   ReportItem, 
-  AnalysisTaskType,
-  AOIPreset
+  AnalysisTaskType
 } from '../../types';
 import { AnalysisScenario, MOCK_SCENARIOS } from '../../data/mockData';
 import { Footer } from '../layout/Footer';
@@ -95,32 +92,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <ModelsAndToolsView onSelectModelTask={handleSelectModelTask} />
           )}
 
-          {/* View 5: 3-Pane Geospatial Canvas (Power-user GIS Interactive Studio) */}
-          {currentView === 'canvas' && (
-            <div className="h-[calc(100vh-10px)] w-full">
-              <WorkspaceView />
-            </div>
-          )}
-
-          {/* View 6: Error States & Recovery Lab (Section 26) */}
-          {currentView === 'errors' && (
-            <ErrorStatesView
-              onResolveToWorkspace={() => setCurrentView('new-analysis')}
-            />
-          )}
-
-          {/* View 7: Settings Page */}
+          {/* View 5: Settings Page */}
           {currentView === 'settings' && (
             <SettingsView
               user={user}
               onUpdateProfile={onUpdateProfile}
-              initialTab="confidence"
+              initialTab="profile"
+              onSignOut={onSignOut}
             />
           )}
         </div>
 
-        {/* Workspace Footer (only on non-full canvas pages) */}
-        {currentView !== 'canvas' && <Footer />}
+        {/* Workspace Footer */}
+        <Footer />
       </main>
     </div>
   );
