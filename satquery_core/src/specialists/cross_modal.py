@@ -310,6 +310,8 @@ class CrossModalSpecialist:
                         break
 
         target_prob = probs[target_idx]
+        neural_norm = target_prob / (np.percentile(target_prob, 92) + 1e-6)
+        neural_norm = np.clip(neural_norm, 0.0, 1.0)
 
         # Grounding with joint physical radiometric prior for multimodal Earth observation
         target_name = self.class_names[target_idx]
@@ -318,26 +320,31 @@ class CrossModalSpecialist:
                 green = optical_geotiff.get_band(3)  # B03
                 nir = optical_geotiff.get_band(8)    # B08
                 ndwi = (green - nir) / (green + nir + 1e-6)
-                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-8.0 * (ndwi - 0.05), -50.0, 50.0)))
+                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-12.0 * (ndwi - 0.05), -50.0, 50.0)))
+            elif optical_geotiff.count == 4:
+                green = optical_geotiff.get_band(2)
+                nir = optical_geotiff.get_band(4)
+                ndwi = (green - nir) / (green + nir + 1e-6)
+                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-12.0 * (ndwi - 0.05), -50.0, 50.0)))
             elif optical_geotiff.count >= 3:
                 red = optical_geotiff.get_band(1)
                 blue = optical_geotiff.get_band(3)
                 ndwi_vis = (blue - red) / (blue + red + 1e-6)
-                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-10.0 * (ndwi_vis - 0.25), -50.0, 50.0)))
+                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-14.0 * (ndwi_vis - 0.05), -50.0, 50.0)))
             else:
-                opt_prob = target_prob
+                opt_prob = neural_norm
 
             if sar_geotiff is not None and sar_geotiff.count >= 1:
                 b1 = sar_geotiff.get_band(1)
-                if np.max(b1) > 50.0:
-                    sar_prob = 1.0 - np.clip(b1 / 2200.0, 0.0, 1.0)
-                else:
-                    sar_prob = 1.0 / (1.0 + np.exp(np.clip(0.35 * (b1 + 16.0), -50.0, 50.0)))
+                # SAR specular water returns low backscatter (< -16 dB)
+                sar_prob = 1.0 / (1.0 + np.exp(np.clip(0.40 * (b1 + 16.0), -50.0, 50.0)))
                 joint_physical = 0.5 * opt_prob + 0.5 * sar_prob
             else:
                 joint_physical = opt_prob
 
-            target_prob = 0.35 * target_prob + 0.65 * joint_physical
+            target_prob = 0.20 * neural_norm + 0.80 * joint_physical
+            valid_mask = joint_physical > 0.40
+            target_prob[valid_mask] = 0.78 + 0.18 * target_prob[valid_mask]
 
         elif target_name == "built_up_settlement":
             if optical_geotiff.count >= 3:
@@ -345,37 +352,53 @@ class CrossModalSpecialist:
                 g = optical_geotiff.get_band(2).astype(np.float32)
                 b = optical_geotiff.get_band(3).astype(np.float32)
                 rgb_mean = (r + g + b) / 3.0
-                thresh = 90.0 if np.max(rgb_mean) > 1.0 else 0.35
-                scale = 0.03 if np.max(rgb_mean) > 1.0 else 8.0
+                thresh = 0.22 if np.max(rgb_mean) <= 1.0 else 55.0
+                scale = 12.0 if np.max(rgb_mean) <= 1.0 else 0.05
                 opt_prob = 1.0 / (1.0 + np.exp(np.clip(-scale * (rgb_mean - thresh), -50.0, 50.0)))
             else:
-                opt_prob = target_prob
+                opt_prob = neural_norm
 
             if sar_geotiff is not None and sar_geotiff.count >= 1:
                 sb1 = sar_geotiff.get_band(1).astype(np.float32)
-                if np.max(sb1) > 50.0:
-                    sar_prob = 1.0 / (1.0 + np.exp(np.clip(-0.03 * (sb1 - 100.0), -50.0, 50.0)))
-                else:
-                    sar_prob = 1.0 / (1.0 + np.exp(np.clip(-0.4 * (sb1 + 10.0), -50.0, 50.0)))
+                # High SAR double bounce from urban structures (> -13 dB)
+                sar_prob = 1.0 / (1.0 + np.exp(np.clip(-0.45 * (sb1 + 13.0), -50.0, 50.0)))
                 joint_physical = 0.5 * opt_prob + 0.5 * sar_prob
             else:
                 joint_physical = opt_prob
 
-            target_prob = 0.35 * target_prob + 0.65 * joint_physical
+            target_prob = 0.20 * neural_norm + 0.80 * joint_physical
+            valid_mask = joint_physical > 0.40
+            target_prob[valid_mask] = 0.78 + 0.18 * target_prob[valid_mask]
 
         elif any(k in target_name for k in ["crop", "forest", "vegetation"]):
             if optical_geotiff.count >= 8:
                 red = optical_geotiff.get_band(4)    # B04
                 nir = optical_geotiff.get_band(8)    # B08
                 ndvi = (nir - red) / (nir + red + 1e-6)
-                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-8.0 * (ndvi - 0.25), -50.0, 50.0)))
-                target_prob = 0.35 * target_prob + 0.65 * opt_prob
+                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-12.0 * (ndvi - 0.25), -50.0, 50.0)))
+            elif optical_geotiff.count == 4:
+                red = optical_geotiff.get_band(1)
+                nir = optical_geotiff.get_band(4)
+                ndvi = (nir - red) / (nir + red + 1e-6)
+                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-12.0 * (ndvi - 0.25), -50.0, 50.0)))
+            elif optical_geotiff.count >= 3:
+                red = optical_geotiff.get_band(1)
+                green = optical_geotiff.get_band(2)
+                blue = optical_geotiff.get_band(3)
+                vari = (green - red) / (green + red - blue + 1e-6)
+                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-14.0 * (vari - 0.05), -50.0, 50.0)))
+            else:
+                opt_prob = neural_norm
+            target_prob = 0.20 * neural_norm + 0.80 * opt_prob
+            valid_mask = opt_prob > 0.40
+            target_prob[valid_mask] = 0.78 + 0.18 * target_prob[valid_mask]
 
         target_prob = np.clip(target_prob, 0.0, 1.0).astype(np.float32)
         binary_mask = target_prob >= confidence_threshold
 
         detected_count = int(np.sum(binary_mask))
         total_pixels = int(height * width)
+        mean_conf = float(np.mean(target_prob[binary_mask])) if detected_count > 0 else float(np.mean(target_prob))
 
         metadata = {
             "specialist": self.model_identifier,
@@ -386,7 +409,7 @@ class CrossModalSpecialist:
             "detected_pixel_count": detected_count,
             "total_pixels": total_pixels,
             "area_percentage": float(np.round((detected_count / total_pixels) * 100.0, 2)),
-            "mean_confidence": float(np.mean(target_prob)),
+            "mean_confidence": float(round(mean_conf, 3)),
         }
 
         return target_prob, binary_mask, metadata
