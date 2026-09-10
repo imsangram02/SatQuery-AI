@@ -9,12 +9,12 @@ import {
   ArrowRight, 
   UserCheck, 
   Globe,
-  Sparkles,
   LogIn,
   UserPlus
 } from 'lucide-react';
 import { UserProfile } from '../../types';
 import { DEFAULT_PROFILE } from '../../data/mockData';
+import { ModernSatelliteAiLogo } from '../landing/LandingNavbar';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -57,23 +57,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     onClose();
   };
 
-  const handleDemoLogin = (role: 'analyst' | 'researcher') => {
-    if (role === 'analyst') {
-      onLoginSuccess(DEFAULT_PROFILE);
-    } else {
-      onLoginSuccess({
-        name: 'Dr. Alex Vance',
-        email: 'a.vance@climate-consortium.eu',
-        organization: 'European Climate Monitoring Lab',
-        role: 'SAR & Radar Remote Sensing Specialist',
-        stacTier: 'Research Fellowship Tier',
-        quotaUsedGb: 310,
-        quotaMaxGb: 1000
-      });
-    }
-    onClose();
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="relative w-full max-w-md">
@@ -101,18 +84,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         <div className="p-6 sm:p-8">
           {/* Logo & Title */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-teal-500 text-slate-950 flex items-center justify-center font-bold shadow-md shadow-teal-500/20">
-              <Satellite className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-                SatQuery<span className="text-teal-500">AI</span> Authentication
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Planetary STAC & Geospatial Inference Gateway
-              </p>
-            </div>
+          <div className="mb-6">
+            <ModernSatelliteAiLogo size="md" showText={true} />
+            <p className="text-xs text-slate-500 dark:text-[#A8B6CF] mt-2">
+              Planetary STAC & Geospatial Inference Gateway
+            </p>
           </div>
 
           {/* Tab Switcher */}
@@ -233,46 +209,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Quick Demo Logins */}
-          <div className="mt-6 pt-5 border-t border-slate-200 dark:border-slate-800">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-teal-500" />
-              <span className="text-[11px] font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
-                Quick Demo Access (One-Click)
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('analyst')}
-                className="w-full py-2 px-3 rounded-lg bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 text-left flex items-center justify-between transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-              >
-                <div>
-                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-200">
-                    Dr. Maya Chen (Lead EO Analyst)
-                  </div>
-                  <div className="text-[11px] text-slate-500">Planetary Dynamics Institute • Dedicated Tier</div>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-teal-500" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('researcher')}
-                className="w-full py-2 px-3 rounded-lg bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 text-left flex items-center justify-between transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-              >
-                <div>
-                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-200">
-                    Dr. Alex Vance (SAR & Radar)
-                  </div>
-                  <div className="text-[11px] text-slate-500">European Climate Lab • Research Fellow</div>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-teal-500" />
-              </button>
-            </div>
-          </div>
 
           {/* Institutional SSO Options */}
           <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-center gap-3 text-[11px] text-slate-500">

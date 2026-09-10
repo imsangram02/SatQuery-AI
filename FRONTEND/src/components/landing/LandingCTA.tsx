@@ -29,10 +29,9 @@ export const LandingCTA: React.FC<LandingCTAProps> = ({ onLaunchApp }) => {
           <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
             <button
               onClick={onLaunchApp}
-              className="px-8 py-4 rounded-xl btn-gradient text-base flex items-center gap-2.5 shadow-xl hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              className="px-8 py-4 rounded-xl btn-gradient text-base flex items-center justify-center shadow-xl hover:shadow-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
-              <Sparkles className="w-5 h-5 text-amber-300 stroke-[2.5]" />
-              <span>Launch SatQuery AI →</span>
+              <span>Launch SatQuery AI</span>
             </button>
           </div>
         </div>

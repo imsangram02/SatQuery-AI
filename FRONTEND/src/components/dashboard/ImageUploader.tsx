@@ -9,7 +9,6 @@ import {
   Calendar, 
   Maximize2, 
   Trash2, 
-  Sparkles,
   Info,
   AlertCircle
 } from 'lucide-react';
@@ -34,6 +33,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   onSelectScenario
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -61,13 +61,16 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   };
 
   const processFiles = (fileList: FileList) => {
+    setErrorMessage(null);
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
       const isTiff = file.name.toLowerCase().endsWith('.tif') || file.name.toLowerCase().endsWith('.tiff');
-      const isPng = file.name.toLowerCase().endsWith('.png');
-      const isJpeg = file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg');
 
-      const format = isTiff ? 'GeoTIFF' : isPng ? 'PNG' : 'JPEG';
+      if (!isTiff) {
+        setErrorMessage(`"${file.name}" is not supported. Please upload GeoTIFF (.tif, .tiff) satellite imagery.`);
+        continue;
+      }
+
       const isSar = file.name.toLowerCase().includes('sar') || file.name.toLowerCase().includes('s1');
 
       let previewUrl: string | undefined = undefined;
@@ -82,12 +85,12 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       const newImage: UploadedImageMeta = {
         id: `custom-img-${Date.now()}-${i}`,
         name: file.name,
-        format,
+        format: isTiff ? 'GeoTIFF' : 'TIFF',
         dimensions: '2048 × 2048 px',
         modality: isSar ? 'SAR VV/VH' : 'Optical BOA',
         acquisitionDate: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
         sizeMb: Number((file.size / (1024 * 1024)).toFixed(1)) || 16.4,
-        validationStatus: isTiff ? 'Valid GeoTIFF' : 'Valid Benchmark Raster',
+        validationStatus: isSar ? 'Valid SAR C-Band' : 'Valid GeoTIFF',
         previewVisual: isSar
           ? 'linear-gradient(135deg, #020617 0%, #0f172a 40%, #1e293b 100%)'
           : 'linear-gradient(135deg, #134e4a 0%, #065f46 45%, #0284c7 100%)',
@@ -105,8 +108,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       {/* 1-Click Benchmark Scenario Quick-Load Bar */}
       <div className="p-4 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200 dark:border-cyan-500/20 backdrop-blur-md">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
-            <Sparkles className="w-4 h-4 text-cyan-500" />
+          <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
             <span>QUICK-LOAD BENCHMARK SCENARIOS (1-CLICK TEST)</span>
           </div>
           <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
@@ -188,7 +190,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".tif,.tiff,.png,.jpg,.jpeg"
+          accept=".tif,.tiff"
           onChange={handleFileInputChange}
           className="hidden"
         />
@@ -203,7 +205,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               Drag & Drop Satellite Imagery Here
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Supports <strong className="text-cyan-600 dark:text-cyan-400">GeoTIFF (.tif, .tiff)</strong>, CEOS SAR C-Band radar, and PNG/JPEG benchmark datasets.
+              Supports <strong className="text-cyan-600 dark:text-cyan-400">GeoTIFF (.tif, .tiff)</strong> and CEOS SAR C-Band radar imagery.
             </p>
           </div>
 
@@ -216,6 +218,14 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Format Error Alert */}
+      {errorMessage && (
+        <div className="flex items-center gap-2 p-3 text-xs font-mono text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* Uploaded Images Staging Cards (Section 16: Filename, Format, Dimensions, Modality, Acquisition date, Validation status) */}
       <div className="space-y-3">

@@ -114,6 +114,7 @@ export interface UserProfile {
   stacTier: string;
   quotaUsedGb: number;
   quotaMaxGb: number;
+  avatarUrl?: string;
 }
 
 export interface ModelConfidenceSettings {
@@ -134,9 +135,7 @@ export type DashboardView =
   | 'history' 
   | 'reports' 
   | 'models' 
-  | 'settings' 
-  | 'canvas' 
-  | 'errors';
+  | 'settings';
 
 export type AnalysisTaskType = 
   | 'vqa' 
@@ -154,12 +153,12 @@ export type ImageAnalysisMode =
 export interface UploadedImageMeta {
   id: string;
   name: string;
-  format: 'GeoTIFF' | 'TIFF' | 'PNG' | 'JPEG';
+  format: 'GeoTIFF' | 'TIFF';
   dimensions: string;
   modality: 'Optical BOA' | 'SAR VV/VH' | 'Panchromatic' | 'SWIR / NBR';
   acquisitionDate: string;
   sizeMb: number;
-  validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Valid Benchmark Raster' | 'Error';
+  validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Error';
   previewVisual?: string;
   previewUrl?: string;
   fileObject?: File;

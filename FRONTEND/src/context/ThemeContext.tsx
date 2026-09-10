@@ -20,12 +20,27 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     const root = document.documentElement;
+    const body = document.body;
     if (theme === 'dark') {
       root.classList.add('dark');
+      root.classList.remove('light');
+      if (body) {
+        body.classList.add('dark');
+        body.classList.remove('light');
+      }
     } else {
       root.classList.remove('dark');
+      root.classList.add('light');
+      if (body) {
+        body.classList.remove('dark');
+        body.classList.add('light');
+      }
     }
-    localStorage.setItem('satquery_theme', theme);
+    try {
+      localStorage.setItem('satquery_theme', theme);
+    } catch {
+      // safe fallback
+    }
   }, [theme]);
 
   const toggleTheme = () => {

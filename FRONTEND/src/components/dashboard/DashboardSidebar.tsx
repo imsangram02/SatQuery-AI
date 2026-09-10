@@ -6,8 +6,6 @@ import {
   FileText, 
   Cpu, 
   Settings, 
-  Layers, 
-  AlertTriangle, 
   ArrowLeft, 
   Sun, 
   Moon, 
@@ -19,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { DashboardView, UserProfile } from '../../types';
+import { ModernSatelliteAiLogo } from '../landing/LandingNavbar';
 
 interface DashboardSidebarProps {
   currentView: DashboardView;
@@ -69,17 +68,6 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       badge: '6 Models'
     },
     {
-      id: 'canvas',
-      label: '3-Pane Canvas',
-      icon: Layers,
-      badge: 'GIS'
-    },
-    {
-      id: 'errors',
-      label: 'Error Lab & Recovery',
-      icon: AlertTriangle
-    },
-    {
       id: 'settings',
       label: 'Settings',
       icon: Settings
@@ -95,20 +83,8 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 
         {/* Brand Header */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 via-teal-400 to-indigo-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/25 flex-shrink-0">
-              <Satellite className="w-5 h-5 text-slate-950 stroke-[2.2]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-base font-black tracking-tight text-slate-900 dark:text-white">
-                  SatQuery<span className="text-cyan-500 dark:text-cyan-400">AI</span>
-                </span>
-              </div>
-              <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 block leading-none mt-0.5">
-                Remote Sensing Assistant
-              </span>
-            </div>
+          <div className="flex items-center">
+            <ModernSatelliteAiLogo size="sm" showText={true} />
           </div>
 
           {/* Theme Toggle Button */}
@@ -188,9 +164,17 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         {user && (
           <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold text-xs flex items-center justify-center border border-cyan-500/30 flex-shrink-0">
-                {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-              </div>
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name}
+                  className="w-7 h-7 rounded-lg object-cover border border-cyan-500/30 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold text-xs flex items-center justify-center border border-cyan-500/30 flex-shrink-0">
+                  {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                </div>
+              )}
               <div className="min-w-0">
                 <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
                   {user.name}
