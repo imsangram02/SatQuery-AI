@@ -297,12 +297,12 @@ export interface AnalysisScenario {
   images: Array<{
     id: string;
     name: string;
-    format: 'GeoTIFF' | 'TIFF' | 'PNG' | 'JPEG';
+    format: 'GeoTIFF' | 'TIFF';
     dimensions: string;
     modality: 'Optical BOA' | 'SAR VV/VH' | 'Panchromatic' | 'SWIR / NBR';
     acquisitionDate: string;
     sizeMb: number;
-    validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Valid Benchmark Raster' | 'Error';
+    validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Error';
     previewVisual: string;
   }>;
   result: {
@@ -854,7 +854,7 @@ export const MOCK_ERROR_SCENARIOS: ErrorScenario[] = [
     type: 'invalid-file',
     errorMessage: 'Corrupted File Header or Non-Raster Input',
     diagnosticDetail: 'The uploaded file does not contain valid raster magic bytes (TIFF header 0x49492A00 or 0x4D4D002A expected). File could be corrupted during transfer or is an unsupported vector container.',
-    suggestedFix: 'Verify the file integrity on your local machine. Ensure you are uploading a valid GeoTIFF, TIFF, or standard PNG/JPEG benchmark file.',
+    suggestedFix: 'Verify the file integrity on your local machine. Ensure you are uploading a valid GeoTIFF or CEOS SAR TIFF file.',
     remediationAction: 'Re-upload Valid GeoTIFF'
   },
   {

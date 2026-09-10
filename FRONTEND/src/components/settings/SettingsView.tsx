@@ -1,555 +1,370 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   User, 
-  Key, 
-  Sliders, 
-  ShieldCheck, 
-  Copy, 
-  Check, 
+  Camera, 
   Trash2, 
-  Plus, 
   HardDrive, 
-  Cpu, 
-  Globe, 
-  Save,
-  CheckCircle2,
-  AlertCircle
+  Save, 
+  CheckCircle2, 
+  ShieldCheck, 
+  Building2, 
+  Mail, 
+  Briefcase, 
+  Database,
+  LogOut
 } from 'lucide-react';
-import { UserProfile, ApiKeyItem, ModelConfidenceSettings } from '../../types';
-import { INITIAL_API_KEYS, DEFAULT_CONFIDENCE_SETTINGS } from '../../data/mockData';
+import { UserProfile } from '../../types';
 
 interface SettingsViewProps {
   user: UserProfile;
   onUpdateProfile: (updated: UserProfile) => void;
-  initialTab?: 'profile' | 'api-keys' | 'confidence';
+  initialTab?: string;
+  onSignOut?: () => void;
 }
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateProfile, initialTab = 'confidence' }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'api-keys' | 'confidence'>(initialTab);
-
-  React.useEffect(() => {
-    if (initialTab) {
-      setActiveTab(initialTab);
-    }
-  }, [initialTab]);
-
-  // Profile Form State
+export const SettingsView: React.FC<SettingsViewProps> = ({ user, onUpdateProfile, onSignOut }) => {
   const [name, setName] = useState(user.name);
   const [organization, setOrganization] = useState(user.organization);
   const [email, setEmail] = useState(user.email);
+  const [role, setRole] = useState(user.role);
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(user.avatarUrl);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // API Keys State
-  const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>(INITIAL_API_KEYS);
-  const [newKeyName, setNewKeyName] = useState('');
-  const [newKeyRole, setNewKeyRole] = useState<'Admin' | 'Read/Analyze' | 'Inference-Only'>('Read/Analyze');
-  const [isCreatingKey, setIsCreatingKey] = useState(false);
-  const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Confidence & Inference Settings State
-  const [confidenceSettings, setConfidenceSettings] = useState<ModelConfidenceSettings>(DEFAULT_CONFIDENCE_SETTINGS);
-  const [settingsSaved, setSettingsSaved] = useState(false);
+  const handleAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate image type
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please select a valid image file (PNG, JPG, JPEG, WEBP).');
+      return;
+    }
+
+    // Limit to 5MB
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('Image size exceeds 5 MB. Please select a smaller photo.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setAvatarUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAvatar = () => {
+    setAvatarUrl(undefined);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateProfile({
+    const updated: UserProfile = {
       ...user,
-      name,
-      organization,
-      email
-    });
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 2500);
-  };
-
-  const handleCreateApiKey = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newKeyName.trim()) return;
-
-    const randomSuffix = Math.random().toString(36).substring(2, 8);
-    const newKey: ApiKeyItem = {
-      id: `key-${Date.now()}`,
-      name: newKeyName.trim(),
-      keyMasked: `satq_live_${randomSuffix}...${Math.random().toString(36).substring(2, 6)}`,
-      role: newKeyRole,
-      created: 'Just now',
-      lastUsed: 'Never',
-      requestsCount: 0
+      name: name.trim() || user.name,
+      organization: organization.trim() || user.organization,
+      email: email.trim() || user.email,
+      role: role.trim() || user.role,
+      avatarUrl
     };
 
-    setApiKeys([newKey, ...apiKeys]);
-    setNewKeyName('');
-    setIsCreatingKey(false);
+    onUpdateProfile(updated);
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 3000);
   };
 
-  const handleDeleteKey = (id: string) => {
-    setApiKeys(apiKeys.filter(k => k.id !== id));
-  };
-
-  const handleCopyKey = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedKeyId(id);
-    setTimeout(() => setCopiedKeyId(null), 2000);
-  };
-
-  const handleSaveConfidence = () => {
-    setSettingsSaved(true);
-    setTimeout(() => setSettingsSaved(false), 2500);
-  };
+  // Extract initials for fallback avatar
+  const initials = (name || user.name)
+    .split(' ')
+    .map(n => n[0])
+    .filter(Boolean)
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-      {/* Settings Page Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-          System Settings & Model Controls
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 animate-in fade-in duration-200">
+      {/* Header */}
+      <div className="border-b border-slate-200 dark:border-slate-800 pb-5">
+        <div className="flex items-center gap-2 text-xs font-mono font-bold text-cyan-600 dark:text-cyan-400 uppercase">
+          <User className="w-4 h-4 text-cyan-500" />
+          <span>Account & Researcher Profile</span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white mt-1">
+          Profile Settings
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Configure multi-spectral inference thresholds, API tokens, and spatial indexing parameters.
+          Manage your geospatial analyst credentials, institutional profile, and cloud storage allocations.
         </p>
       </div>
 
-      {/* Tabs Switcher */}
-      <div className="flex border-b border-slate-200 dark:border-slate-800 mb-8 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('confidence')}
-          className={`py-3 px-4 text-xs font-semibold font-mono flex items-center gap-2 border-b-2 transition-all duration-150 active:scale-[0.98] focus:outline-none ${
-            activeTab === 'confidence'
-              ? 'border-teal-500 text-teal-600 dark:text-teal-400'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-          }`}
-        >
-          <Sliders className="w-4 h-4" />
-          <span>Confidence & Inference Controls</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('api-keys')}
-          className={`py-3 px-4 text-xs font-semibold font-mono flex items-center gap-2 border-b-2 transition-all duration-150 active:scale-[0.98] focus:outline-none ${
-            activeTab === 'api-keys'
-              ? 'border-teal-500 text-teal-600 dark:text-teal-400'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-          }`}
-        >
-          <Key className="w-4 h-4" />
-          <span>API Keys & STAC Ingestion</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('profile')}
-          className={`py-3 px-4 text-xs font-semibold font-mono flex items-center gap-2 border-b-2 transition-all duration-150 active:scale-[0.98] focus:outline-none ${
-            activeTab === 'profile'
-              ? 'border-teal-500 text-teal-600 dark:text-teal-400'
-              : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-          }`}
-        >
-          <User className="w-4 h-4" />
-          <span>Profile & Organization</span>
-        </button>
-      </div>
-
-      {/* TAB 1: CONFIDENCE & INFERENCE CONTROLS */}
-      {activeTab === 'confidence' && (
-        <div className="space-y-6">
-          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+      <form onSubmit={handleSaveProfile} className="space-y-6">
+        {/* Section 1: Avatar Upload Card */}
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-teal-500" />
-                Neural Segmentation Thresholds
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Camera className="w-4 h-4 text-cyan-500" />
+                Profile Photo
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Fine-tune precision vs recall trade-offs for GeoSAM-v3 foundation zero-shot masks.
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Upload a professional photo or team avatar for reports and collaborator workspaces.
               </p>
             </div>
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3 text-cyan-500" />
+              Verified Analyst
+            </span>
+          </div>
 
-            {/* Slider 1: Confidence Threshold */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">
-                  Minimum Confidence Cutoff Threshold
-                </label>
-                <span className="font-mono font-bold text-teal-600 dark:text-teal-400">
-                  {confidenceSettings.detectionThreshold}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="50"
-                max="99"
-                value={confidenceSettings.detectionThreshold}
-                onChange={(e) =>
-                  setConfidenceSettings({
-                    ...confidenceSettings,
-                    detectionThreshold: Number(e.target.value)
-                  })
-                }
-                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-500"
-              />
-              <div className="flex justify-between text-[11px] font-mono text-slate-400">
-                <span>50% (High Recall / Broad candidate regions)</span>
-                <span>99% (High Precision / Low false alarms)</span>
-              </div>
-            </div>
-
-            {/* Slider 2: Baseline Drift Sensitivity */}
-            <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between text-xs">
-                <label className="font-semibold text-slate-700 dark:text-slate-300">
-                  Multi-Temporal Drift Sensitivity
-                </label>
-                <span className="font-mono font-bold text-teal-600 dark:text-teal-400">
-                  {confidenceSettings.driftSensitivity}%
-                </span>
-              </div>
-              <input
-                type="range"
-                min="10"
-                max="100"
-                value={confidenceSettings.driftSensitivity}
-                onChange={(e) =>
-                  setConfidenceSettings({
-                    ...confidenceSettings,
-                    driftSensitivity: Number(e.target.value)
-                  })
-                }
-                className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-500"
-              />
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Determines how aggressively subtle spectral changes (e.g. seasonal foliage variation vs actual logging) are flagged as deforestation.
-              </p>
-            </div>
-
-            {/* Cloud Masking Strictness */}
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                Atmospheric Correction & Cloud Masking (s2cloudless)
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                {(['loose', 'balanced', 'aggressive'] as const).map((level) => (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() =>
-                      setConfidenceSettings({
-                        ...confidenceSettings,
-                        cloudMaskStrictness: level
-                      })
-                    }
-                    className={`py-2.5 px-3 rounded-xl text-xs font-semibold capitalize font-mono border transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 ${
-                      confidenceSettings.cloudMaskStrictness === level
-                        ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-teal-500/50 shadow-sm'
-                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                    }`}
-                  >
-                    {level}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Toggles */}
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                    Super-Resolution Generative Upscaling
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Upscale 10m Sentinel-2 pixels to 2.5m synthetic GSD using Latent Diffusion
-                  </div>
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            {/* Avatar Preview */}
+            <div className="relative group flex-shrink-0">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={name}
+                  className="w-24 h-24 rounded-2xl object-cover border-2 border-cyan-500/40 shadow-md"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-cyan-500/20 via-teal-500/20 to-indigo-500/30 text-cyan-700 dark:text-cyan-300 font-black text-2xl flex items-center justify-center border-2 border-cyan-500/30 shadow-md">
+                  {initials || 'EO'}
                 </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setConfidenceSettings({
-                      ...confidenceSettings,
-                      superResolution: !confidenceSettings.superResolution
-                    })
-                  }
-                  className={`w-11 h-6 rounded-full transition-colors relative active:scale-[0.98] ${
-                    confidenceSettings.superResolution ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-700'
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${
-                      confidenceSettings.superResolution ? 'right-1' : 'left-1'
-                    }`}
-                  ></div>
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                    Auto-Generate Cloud-Optimized GeoTIFF (COG) Pyramid Headers
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Embed internal overviews for sub-second OGC WMS tiled zoom
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setConfidenceSettings({
-                      ...confidenceSettings,
-                      autoCogOptimization: !confidenceSettings.autoCogOptimization
-                    })
-                  }
-                  className={`w-11 h-6 rounded-full transition-colors relative active:scale-[0.98] ${
-                    confidenceSettings.autoCogOptimization ? 'bg-teal-500' : 'bg-slate-300 dark:bg-slate-700'
-                  }`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full bg-white transition-transform absolute top-1 ${
-                      confidenceSettings.autoCogOptimization ? 'right-1' : 'left-1'
-                    }`}
-                  ></div>
-                </button>
-              </div>
-            </div>
-
-            {/* Save Button */}
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
-              {settingsSaved && (
-                <span className="text-xs font-mono text-teal-600 dark:text-teal-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Parameters synced to inference engine
-                </span>
               )}
+
               <button
                 type="button"
-                onClick={handleSaveConfidence}
-                className="px-4 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-teal-500/20 transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 p-1.5 rounded-xl bg-cyan-500 text-slate-950 hover:bg-cyan-400 shadow-md transition-transform duration-150 active:scale-95"
+                title="Change Photo"
               >
-                <Save className="w-3.5 h-3.5" />
-                <span>Save Inference Thresholds</span>
+                <Camera className="w-3.5 h-3.5" />
               </button>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* TAB 2: API KEYS & STAC INGESTION */}
-      {activeTab === 'api-keys' && (
-        <div className="space-y-6">
-          <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Key className="w-4 h-4 text-teal-500" />
-                  Personal & Service Account API Keys
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Authenticate your programmatic STAC queries, Python SDK notebooks, and raster inference scripts.
-                </p>
-              </div>
+            {/* Upload Controls */}
+            <div className="flex-1 space-y-2 text-center sm:text-left">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                onChange={handleAvatarFileChange}
+                className="hidden"
+              />
 
-              {!isCreatingKey && (
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setIsCreatingKey(true)}
-                  className="px-3.5 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-teal-500/20 transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs font-mono transition-all duration-150 active:scale-95 shadow-xs flex items-center gap-1.5"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Generate New Key</span>
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>Upload New Photo</span>
                 </button>
-              )}
-            </div>
 
-            {/* Inline Key Generation Form */}
-            {isCreatingKey && (
-              <form onSubmit={handleCreateApiKey} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-3">
-                <h3 className="text-xs font-bold text-slate-900 dark:text-white font-mono uppercase tracking-wider">
-                  Generate Production API Key
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                      Key Description / Label
-                    </label>
-                    <input
-                      type="text"
-                      value={newKeyName}
-                      onChange={(e) => setNewKeyName(e.target.value)}
-                      placeholder="e.g. InSAR Ingestion Pipeline"
-                      required
-                      className="w-full px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:border-teal-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                      Permission Scope
-                    </label>
-                    <select
-                      value={newKeyRole}
-                      onChange={(e) => setNewKeyRole(e.target.value as any)}
-                      className="w-full px-3 py-1.5 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:border-teal-500 font-mono"
-                    >
-                      <option value="Admin">Admin (Full Control)</option>
-                      <option value="Read/Analyze">Read/Analyze (STAC + Model Run)</option>
-                      <option value="Inference-Only">Inference-Only (No Delete/Export)</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2 pt-2">
+                {avatarUrl && (
                   <button
                     type="button"
-                    onClick={() => setIsCreatingKey(false)}
-                    className="px-3 py-1.5 rounded-lg text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-all duration-150 active:scale-[0.98]"
+                    onClick={handleRemoveAvatar}
+                    className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-950/40 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400 border border-slate-200 dark:border-slate-700 text-xs font-mono font-semibold transition-all duration-150 active:scale-95 flex items-center gap-1.5"
                   >
-                    Cancel
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove</span>
                   </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-1.5 rounded-lg bg-teal-500 text-slate-950 text-xs font-bold transition-all duration-150 active:scale-[0.98]"
-                  >
-                    Create Key
-                  </button>
-                </div>
-              </form>
-            )}
+                )}
+              </div>
 
-            {/* Keys List */}
-            <div className="space-y-3">
-              {apiKeys.map((key) => (
-                <div
-                  key={key.id}
-                  className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">
-                        {key.name}
-                      </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
-                        {key.role}
-                      </span>
-                    </div>
-                    <div className="font-mono text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-3">
-                      <span>{key.keyMasked}</span>
-                      <span>•</span>
-                      <span>Requests: {key.requestsCount.toLocaleString()}</span>
-                      <span>•</span>
-                      <span>Last used: {key.lastUsed}</span>
-                    </div>
-                  </div>
+              <p className="text-[11px] font-mono text-slate-400">
+                Recommended: Square JPG, PNG, or WebP. Max 5 MB.
+              </p>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleCopyKey(key.id, key.keyMasked)}
-                      className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-teal-500 transition-all duration-150 active:scale-[0.98]"
-                      title="Copy Key Token"
-                    >
-                      {copiedKeyId === key.id ? (
-                        <Check className="w-3.5 h-3.5 text-teal-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteKey(key.id)}
-                      className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-rose-500 transition-all duration-150 active:scale-[0.98]"
-                      title="Revoke Key"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+              {uploadError && (
+                <p className="text-xs font-mono text-rose-500 pt-1">
+                  {uploadError}
+                </p>
+              )}
             </div>
           </div>
         </div>
-      )}
 
-      {/* TAB 3: USER PROFILE & ORGANIZATION */}
-      {activeTab === 'profile' && (
-        <div className="space-y-6">
-          <form onSubmit={handleSaveProfile} className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+        {/* Section 2: Identity & Organization Data */}
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+          <div className="border-b border-slate-100 dark:border-slate-800/80 pb-3">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <User className="w-4 h-4 text-cyan-500" />
+              Institutional Credentials
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Personal research details referenced in AI report generation and audit trails.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Full Name */}
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <User className="w-4 h-4 text-teal-500" />
-                Researcher Profile & STAC Allocation
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Manage your enterprise identity and cloud storage allocations.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Full Name
-                </label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Full Name
+              </label>
+              <div className="relative">
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none focus:border-teal-500"
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none focus:border-cyan-500 transition-colors"
+                  placeholder="e.g. Dr. Maya Chen"
+                  required
                 />
+                <User className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Institutional Email
-                </label>
+            {/* Institutional Email */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Institutional Email
+              </label>
+              <div className="relative">
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none focus:border-teal-500 font-mono"
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none focus:border-cyan-500 font-mono transition-colors"
+                  placeholder="name@institute.org"
+                  required
                 />
+                <Mail className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
               </div>
+            </div>
 
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Organization / University Lab
-                </label>
+            {/* Organization */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Organization / Research Lab
+              </label>
+              <div className="relative">
                 <input
                   type="text"
                   value={organization}
                   onChange={(e) => setOrganization(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none focus:border-teal-500"
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none focus:border-cyan-500 transition-colors"
+                  placeholder="e.g. Planetary Dynamics Institute & ESA"
+                  required
                 />
+                <Building2 className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
               </div>
             </div>
 
-            {/* Storage Quota Progress Bar */}
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <HardDrive className="w-3.5 h-3.5 text-teal-500" />
-                  Cloud COG Raster Quota
-                </span>
-                <span className="font-mono text-slate-500">
-                  {user.quotaUsedGb} GB / {user.quotaMaxGb} GB ({Math.round((user.quotaUsedGb / user.quotaMaxGb) * 100)}%)
-                </span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full bg-teal-500 rounded-full"
-                  style={{ width: `${(user.quotaUsedGb / user.quotaMaxGb) * 100}%` }}
-                ></div>
+            {/* Role / Designation */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Designation / Research Role
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none focus:border-cyan-500 transition-colors"
+                  placeholder="e.g. Principal Geospatial Research Lead"
+                  required
+                />
+                <Briefcase className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
               </div>
             </div>
+          </div>
+        </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
-              {profileSaved && (
-                <span className="text-xs font-mono text-teal-600 dark:text-teal-400 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Profile updated successfully
-                </span>
-              )}
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-sm shadow-teal-500/20 transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
-              >
-                <Save className="w-3.5 h-3.5" />
-                <span>Save Profile Changes</span>
-              </button>
+        {/* Section 3: STAC Tier & Storage Allocation */}
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div className="border-b border-slate-100 dark:border-slate-800/80 pb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Database className="w-4 h-4 text-cyan-500" />
+                STAC Tier & Cloud Quota
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Storage allocated for Cloud-Optimized GeoTIFF (COG) rasters and multi-spectral caches.
+              </p>
             </div>
-          </form>
+            <span className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              {user.stacTier}
+            </span>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <HardDrive className="w-3.5 h-3.5 text-cyan-500" />
+                Cloud Raster Quota Usage
+              </span>
+              <span className="font-mono text-slate-600 dark:text-slate-400">
+                <strong className="text-slate-900 dark:text-white">{user.quotaUsedGb} GB</strong> / {user.quotaMaxGb} GB ({Math.round((user.quotaUsedGb / user.quotaMaxGb) * 100)}%)
+              </span>
+            </div>
+            <div className="w-full h-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full transition-all duration-300"
+                style={{ width: `${Math.min(100, Math.round((user.quotaUsedGb / user.quotaMaxGb) * 100))}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[11px] font-mono text-slate-400 pt-0.5">
+              <span>Sentinel-2 L2A BOA Cache: 410 GB</span>
+              <span>Available: {user.quotaMaxGb - user.quotaUsedGb} GB</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Form Actions */}
+        <div className="flex items-center justify-between pt-2">
+          <div>
+            {profileSaved && (
+              <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 font-bold animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                Profile updated successfully!
+              </span>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs font-mono flex items-center gap-2 shadow-sm shadow-cyan-500/25 transition-all duration-150 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+          >
+            <Save className="w-4 h-4" />
+            <span>Save Profile Changes</span>
+          </button>
+        </div>
+      </form>
+
+      {/* Section 4: Account Session & Sign Out */}
+      {onSignOut && (
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <LogOut className="w-4 h-4 text-rose-500" />
+              Account Session
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Sign out of your researcher workspace session and return to the main landing page.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 text-xs font-mono font-bold flex items-center gap-2 transition-all duration-150 active:scale-95 whitespace-nowrap self-start sm:self-auto"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Log Out to Landing Page</span>
+          </button>
         </div>
       )}
     </div>
