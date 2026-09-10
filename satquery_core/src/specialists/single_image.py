@@ -135,6 +135,9 @@ class SingleImageSpecialist:
         "open_water", "flooded_land", "urban_double_bounce", "forest", "bare_soil", "noise"
     ]
 
+    OPTICAL_MODEL_ID: str = "timm/convnextv2_base.fcmae_ft_in22k_in1k"
+    SAR_MODEL_ID: str = "timm/convnextv2_base (in_chans=2)"
+
     def __init__(
         self,
         modality: str = "optical",
@@ -145,11 +148,13 @@ class SingleImageSpecialist:
     ) -> None:
         self.modality = modality.lower().strip()
         if self.modality == "optical":
+            self.model_identifier = self.OPTICAL_MODEL_ID
             self.in_channels = in_channels or 12
             self.class_names = self.OPTICAL_CLASSES
             self.num_classes = num_classes or len(self.class_names)
             embed_dim = 128
         elif self.modality == "sar":
+            self.model_identifier = self.SAR_MODEL_ID
             self.in_channels = in_channels or 2
             self.class_names = self.SAR_CLASSES
             self.num_classes = num_classes or len(self.class_names)
@@ -265,14 +270,14 @@ class SingleImageSpecialist:
                     red = geotiff.get_band(1)
                     blue = geotiff.get_band(3)
                     ndwi_visual = (blue - red) / (blue + red + 1e-6)
-                    spectral_prob = 1.0 / (1.0 + np.exp(-10.0 * (ndwi_visual - 0.25)))
+                    spectral_prob = 1.0 / (1.0 + np.exp(np.clip(-10.0 * (ndwi_visual - 0.25), -50.0, 50.0)))
                     target_prob = 0.35 * target_prob + 0.65 * spectral_prob
             elif target_name in ["cropland", "dense_forest", "shrubland"]:
                 if geotiff.count >= 8:
                     red = geotiff.get_band(4)    # Sentinel-2 B04
                     nir = geotiff.get_band(8)    # Sentinel-2 B08
                     ndvi = (nir - red) / (nir + red + 1e-6)
-                    spectral_prob = 1.0 / (1.0 + np.exp(-8.0 * (ndvi - 0.25)))
+                    spectral_prob = 1.0 / (1.0 + np.exp(np.clip(-8.0 * (ndvi - 0.25), -50.0, 50.0)))
                     target_prob = 0.35 * target_prob + 0.65 * spectral_prob
                 elif geotiff.count >= 3:
                     # Visible Atmospheric Resistant Index (VARI) for visual RGB imagery
@@ -280,7 +285,7 @@ class SingleImageSpecialist:
                     green = geotiff.get_band(2)
                     blue = geotiff.get_band(3)
                     vari = (green - red) / (green + red - blue + 1e-6)
-                    spectral_prob = 1.0 / (1.0 + np.exp(-10.0 * (vari - 0.20)))
+                    spectral_prob = 1.0 / (1.0 + np.exp(np.clip(-10.0 * (vari - 0.20), -50.0, 50.0)))
                     target_prob = 0.35 * target_prob + 0.65 * spectral_prob
             elif target_name == "urban":
                 if geotiff.count >= 3:
@@ -289,7 +294,7 @@ class SingleImageSpecialist:
                     blue = geotiff.get_band(3)
                     # Built-up/impervious surfaces have high brightness across all visible bands
                     brightness = (red + green + blue) / 3.0
-                    spectral_prob = 1.0 / (1.0 + np.exp(-5.0 * (brightness - 0.35)))
+                    spectral_prob = 1.0 / (1.0 + np.exp(np.clip(-5.0 * (brightness - 0.35), -50.0, 50.0)))
                     target_prob = 0.40 * target_prob + 0.60 * spectral_prob
         elif self.modality == "sar":
             if geotiff.count >= 1:
@@ -298,7 +303,7 @@ class SingleImageSpecialist:
                 if np.max(b1) > 50.0:  # Amplitude DN
                     sar_prob = 1.0 - np.clip(b1 / 2200.0, 0.0, 1.0)
                 else:  # Decibels dB
-                    sar_prob = 1.0 / (1.0 + np.exp(0.35 * (b1 + 16.0)))
+                    sar_prob = 1.0 / (1.0 + np.exp(np.clip(0.35 * (b1 + 16.0), -50.0, 50.0)))
                 target_prob = 0.35 * target_prob + 0.65 * sar_prob
 
         target_prob = np.clip(target_prob, 0.0, 1.0).astype(np.float32)
@@ -308,6 +313,8 @@ class SingleImageSpecialist:
         # Summary diagnostics
         dominant_class_idx = int(np.argmax(np.mean(probs, axis=(1, 2))))
         metadata = {
+            "specialist": self.model_identifier,
+            "model_identifier": self.model_identifier,
             "modality": self.modality,
             "target_class": self.class_names[target_idx],
             "target_class_idx": target_idx,

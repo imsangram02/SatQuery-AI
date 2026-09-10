@@ -163,7 +163,13 @@ class ChangeDetectionSpecialist:
     """
     High-level inference specialist executing bi-temporal change detection
     with automatic spatial alignment and physical difference verification.
+    Backbone: BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0 (Hugging Face)
+    Architecture: Shared-weight Siamese ResNet-50 network
     """
+
+    MODEL_IDENTIFIER: str = "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0"
+    HF_REPO_URL: str = "https://huggingface.co/BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0"
+    ARCHITECTURE_NAME: str = "Shared-weight Siamese ResNet-50 network"
 
     def __init__(
         self,
@@ -172,6 +178,7 @@ class ChangeDetectionSpecialist:
         device: Optional[str] = None,
     ) -> None:
         self.in_channels = in_channels
+        self.model_identifier = self.MODEL_IDENTIFIER
         self.device = torch.device(
             device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
         )
@@ -245,7 +252,16 @@ class ChangeDetectionSpecialist:
                     count_map[r_start:r_end, c_start:c_end] += 1.0
 
         count_map = np.maximum(count_map, 1.0)
-        prob_map = accum_prob / count_map
+        neural_prob = accum_prob / count_map
+
+        # Grounding with deterministic physical multi-spectral reflectance change
+        common_chans = min(pre_geotiff.count, post_geotiff.count)
+        spectral_diff = np.sqrt(np.mean((t2_arr[:common_chans] - t1_arr[:common_chans]) ** 2, axis=0))
+        physical_change_prob = np.clip((spectral_diff - 0.03) / 0.12, 0.0, 1.0)
+
+        # Fused probability: modulates Siamese features with physical spectral delta
+        prob_map = 0.30 * (neural_prob * np.clip(spectral_diff / 0.04, 0.0, 1.0)) + 0.70 * physical_change_prob
+        prob_map = np.clip(prob_map, 0.0, 1.0).astype(np.float32)
         binary_mask = prob_map >= confidence_threshold
 
         changed_pixels = int(np.sum(binary_mask))
@@ -260,7 +276,10 @@ class ChangeDetectionSpecialist:
             physical_deltas["mean_channel_0_delta"] = round(delta_ch0, 4)
 
         metadata = {
-            "specialist": "siamese_resnet50",
+            "target_class": "land_cover_change",
+            "specialist": self.model_identifier,
+            "model_identifier": self.model_identifier,
+            "architecture": self.ARCHITECTURE_NAME,
             "changed_pixel_count": changed_pixels,
             "total_pixels": total_pixels,
             "change_percentage": change_pct,
@@ -271,9 +290,12 @@ class ChangeDetectionSpecialist:
         return prob_map, binary_mask, metadata
 
     def _prepare_array(self, arr: np.ndarray, target_h: int, target_w: int) -> np.ndarray:
-        """Slice or pad array channels to conform to required input channels and dimensions."""
+        """Extract optimal channels (e.g. RGB+NIR for 12-band Sentinel-2) and crop/pad to dimensions."""
         c, _, _ = arr.shape
         cropped = arr[:, :target_h, :target_w]
+        if c >= 8 and self.in_channels == 4:
+            # Select 10m Sentinel-2 bands: B02 (Blue), B03 (Green), B04 (Red), B08 (NIR)
+            return cropped[[1, 2, 3, 7]]
         if c < self.in_channels:
             padded = np.zeros((self.in_channels, target_h, target_w), dtype=np.float32)
             padded[:c] = cropped

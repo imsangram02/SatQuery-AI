@@ -1,0 +1,87 @@
+{
+  "metadata": {
+    "report_id": "SATQUERY-D3EB7D01",
+    "timestamp": "2026-09-10T11:24:19.538151+00:00",
+    "crs": "EPSG:4326",
+    "bounds": [
+      81.5,
+      16.5,
+      81.75,
+      16.75
+    ]
+  },
+  "query_text": "Fuse optical and SAR radar imagery for cloud-penetrating water detection",
+  "task_type": "cross_modal_fusion",
+  "summary_text": "Query Analysis Complete: 'Fuse optical and SAR radar imagery for cloud-penetrating water detection'\n\n• Spatial & Semantic Findings:\n  Multimodal cross-sensor fusion integrated 12-band Sentinel-2 Bottom-of-Atmosphere optical reflectance with 2-channel Sentinel-1 C-band synthetic aperture radar (VV/VH backscatter). The joint 14-channel Vision Transformer (ViT-Base) successfully resolved 12,853 pixels (14,554.80 hectares, 19.6% scene footprint) classified as 'clean water' with an average posterior fusion confidence of 63.8%.\n\n• Morphological Layout:\n  Multimodal agreement overcomes optical atmospheric attenuation and cloud coverage by correlating surface spectral absorption with specular microwave radar backscatter depressions.\n\n• Physical & Radiometric Verification:\n  Deterministic physical cross-examination confirmed consistent radiometric signatures across: NDWI (PASSED, 100.0% agreement, mean 0.833); SAR_VV_dB (PASSED, 99.3% agreement, mean -21.739) (Verdict: VERIFIED).\n\n• Forensic Trace:\n  Agentic Controller: Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)\n  Specialist Backbone: ViT Base S1+S2 (timm/vit_base_patch16_224 adapted to 14ch)\n  Task Routing: cross_modal_fusion | Trace ID: d3eb7d01 | Latency: 138.4 ms.",
+  "statistics": {
+    "detected_pixel_count": 12853,
+    "total_pixels": 65536,
+    "area_hectares": 14554.798,
+    "mean_probability": 0.638,
+    "coverage_percentage": 19.61,
+    "specialist_metadata": {
+      "specialist": "ViT Base S1+S2 (timm/vit_base_patch16_224 adapted to 14ch)",
+      "model_identifier": "ViT Base S1+S2 (timm/vit_base_patch16_224 adapted to 14ch)",
+      "architecture": "14-Channel Vision Transformer (ViT-Base Early Fusion)",
+      "fusion_channels": 14,
+      "target_class": "clean_water",
+      "detected_pixel_count": 12853,
+      "total_pixels": 65536,
+      "area_percentage": 19.61,
+      "mean_confidence": 0.2021779865026474
+    }
+  },
+  "audit_trace": {
+    "trace_id": "d3eb7d01-2b2e-4791-a958-07c1523f6ce6",
+    "timestamp": "2026-09-10T11:24:19.538151+00:00",
+    "task_type": "cross_modal_fusion",
+    "controller_model": "Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)",
+    "specialist_model": "ViT Base S1+S2 (timm/vit_base_patch16_224 adapted to 14ch)",
+    "input_shapes": {
+      "primary_raw": [
+        12,
+        256,
+        256
+      ],
+      "secondary_raw": [
+        2,
+        256,
+        256
+      ]
+    },
+    "preprocessing_applied": [
+      "primary_calibrated_surface_reflectance",
+      "secondary_calibrated_sigma_nought_db"
+    ],
+    "physics_checks": [
+      {
+        "index_name": "NDWI",
+        "passed": true,
+        "coverage_percentage": 100.0,
+        "mean_value": 0.8333,
+        "min_value": 0.8333,
+        "max_value": 0.8333,
+        "discrepancy_note": null
+      },
+      {
+        "index_name": "SAR_VV_dB",
+        "passed": true,
+        "coverage_percentage": 99.28,
+        "mean_value": -21.7388,
+        "min_value": -21.9382,
+        "max_value": -14.252,
+        "discrepancy_note": null
+      }
+    ],
+    "execution_time_ms": 138.36,
+    "verdict": "VERIFIED"
+  },
+  "artifacts": {
+    "input_image_path": "C:\\Users\\Rajdeep Chakraborty\\AppData\\Local\\Temp\\tmpiwmxxr8s\\sentinel2_godavari_pre.tif",
+    "secondary_image_path": "C:\\Users\\Rajdeep Chakraborty\\AppData\\Local\\Temp\\tmpiwmxxr8s\\sentinel1_godavari_sar.tif",
+    "mask_image_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\masks\\pred_d3eb7d01_1789039459_mask.png",
+    "heatmap_image_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\heatmaps\\pred_d3eb7d01_1789039459_heatmap.png",
+    "overlay_image_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\overlays\\pred_d3eb7d01_1789039459_overlay.png",
+    "geojson_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\geojson\\pred_d3eb7d01_1789039459_vectors.geojson"
+  }
+}

@@ -2,65 +2,96 @@
 # SatQuery AI — Deep Learning Model Registry & Architecture Configurations
 # ==============================================================================
 
-version: "1.0.0"
-description: "Specialist deep learning backbone definitions for offline satellite imagery reasoning."
+version: "2.0.0"
+description: "Production & prototype remote-sensing specialist backbones for SatQuery AI."
 
 global_settings:
   preferred_device: "cuda"          # Automatically falls back to 'cpu' if CUDA is unavailable
-  tile_size: 512                   # Standard sliding window inference tile size [pixels]
+  tile_size: 512                   # Sliding window inference tile size [pixels]
   tile_overlap: 64                 # Overlap stride margin to suppress edge stitching artifacts
   default_dtype: "float32"
 
 models:
   # ----------------------------------------------------------------------------
-  # 1. Single Image Specialist: ConvNeXt-v2 Feature Extractor
+  # 1. Agentic Controller & Reasoning Decoder
+  # ----------------------------------------------------------------------------
+  agentic_controller:
+    model_identifier: "Qwen/Qwen3-VL-7B-Instruct"
+    lora_adapter: "aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora"
+    base_repo_url: "https://huggingface.co/Qwen"
+    lora_repo_url: "https://huggingface.co/aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora"
+    purpose: "Natural language query parsing, metadata extraction, dynamic specialist tool routing, and synthesis of technical reports."
+    fine_tuning: "LoRA fine-tuned on BigEarthNet.txt for domain-specific remote-sensing vocabulary"
+    execution_constraints:
+      local_files_only: true
+      quantization: "FP16"
+      device_map: "auto"
+      fallback_to_heuristic: true
+
+  # ----------------------------------------------------------------------------
+  # 2. Optical Single-Image Specialist (Sentinel-2)
   # ----------------------------------------------------------------------------
   single_image_s2:
-    architecture: "convnextv2_tiny"
+    model_identifier: "timm/convnextv2_base"
+    huggingface_id: "timm/convnextv2_base.fcmae_ft_in22k_in1k"
     specialist_type: "SingleImageSpecialist"
     modality: "optical"
     input_channels: 12             # Full Sentinel-2 Level-2A 12-band stack
-    feature_dim: 768
+    feature_dim: 1024
     num_classes: 8                 # Water, Urban, Dense Forest, Shrubland, Cropland, Barren, Snow/Ice, Cloud
-    pretrained: false              # Offline operation: weights loaded locally or initialized cleanly
-    checkpoint_path: "models/checkpoints/convnextv2_s2_tiny.pt"
+    purpose: "High-resolution spatial and spectral feature extraction across visible and NIR optical bands."
+    input_adaptation: "Normalized multispectral surface reflectance [0.0, 1.0]"
+    pretrained: true
+    checkpoint_path: "models/checkpoints/convnextv2_base_s2.pt"
     normalization:
       mean: [0.15, 0.14, 0.13, 0.12, 0.16, 0.22, 0.25, 0.27, 0.28, 0.05, 0.21, 0.13]
       std: [0.08, 0.07, 0.08, 0.08, 0.09, 0.11, 0.12, 0.12, 0.13, 0.03, 0.10, 0.08]
 
+  # ----------------------------------------------------------------------------
+  # 3. SAR Single-Image Specialist (Sentinel-1 Radar)
+  # ----------------------------------------------------------------------------
   single_image_s1:
-    architecture: "convnextv2_nano"
+    model_identifier: "timm/convnextv2_base"
+    huggingface_id: "timm/convnextv2_base"
+    input_stem_chans: 2            # Modified input stem for dual-polarization (VV, VH)
     specialist_type: "SingleImageSpecialist"
     modality: "sar"
     input_channels: 2              # Dual-pol Sentinel-1 (VV, VH) in calibrated decibels
-    feature_dim: 640
+    feature_dim: 1024
     num_classes: 6                 # Open Water, Flooded Land, Urban Double-Bounce, Forest, Bare Soil, Noise
-    pretrained: false
-    checkpoint_path: "models/checkpoints/convnextv2_s1_nano.pt"
+    purpose: "Structural features, geometric backscatter, and dielectric signatures from dual-polarization SAR."
+    input_adaptation: "Decibel-scaled radar backscatter tensors (sigma0 in dB)"
+    pretrained: true
+    checkpoint_path: "models/checkpoints/convnextv2_base_s1.pt"
     normalization:
       mean: [-12.5, -19.0]         # Empirical dB mean for terrestrial C-band VV and VH
       std: [4.5, 4.0]              # Empirical dB standard deviation
 
   # ----------------------------------------------------------------------------
-  # 2. Change Detection Specialist: ResNet-50 Siamese Difference Engine
+  # 4. Bi-Temporal Change Detection Specialist
   # ----------------------------------------------------------------------------
   siamese_change_detection:
-    architecture: "siamese_resnet50"
+    model_identifier: "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0"
+    huggingface_id: "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0"
+    repo_url: "https://huggingface.co/BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0"
+    architecture: "Shared-weight Siamese ResNet-50 network"
     specialist_type: "ChangeDetectionSpecialist"
     modality: "bitemporal"
-    input_channels_per_time: 4     # Pre/Post Blue, Green, Red, NIR (or dual-pol SAR)
-    backbone_weights: "offline"
-    checkpoint_path: "models/checkpoints/siamese_resnet50_change.pt"
-    feature_difference_mode: "abs_diff_concat"  # Concatenates [|F_t2 - F_t1|, F_t1, F_t2]
-    head_hidden_dim: 256
+    input_channels_per_time: 4     # Pre/Post Blue, Green, Red, NIR (or 12-band S2)
+    purpose: "Evaluates paired bi-temporal GeoTIFFs (T1 pre vs T2 post) via feature difference vectors."
+    pretrained: true
+    checkpoint_path: "models/checkpoints/bifold_resnet50_change.pt"
+    feature_difference_mode: "abs_diff_concat"
     num_classes: 2                 # 0: Unchanged, 1: Significant Land-cover Change
     decision_threshold: 0.50
 
   # ----------------------------------------------------------------------------
-  # 3. Cross-Modal Fusion Specialist: ViT Base 14-Channel Joint Optical-SAR
+  # 5. Cross-Modal Sensor Fusion Specialist
   # ----------------------------------------------------------------------------
   cross_modal_fusion:
-    architecture: "vit_base_patch16_14ch"
+    model_identifier: "ViT Base S1+S2"
+    huggingface_id: "timm/vit_base_patch16_224"
+    architecture: "14-Channel Vision Transformer (ViT-Base Early Fusion)"
     specialist_type: "CrossModalSpecialist"
     modality: "multimodal_optical_sar"
     input_channels: 14             # 12 Optical bands (S2) + 2 SAR bands (S1 VV, VH)
@@ -70,6 +101,8 @@ models:
     num_heads: 12
     mlp_ratio: 4.0
     num_classes: 10                # Inundated Urban, Clean Water, Agriculture, Silt Inundation, etc.
+    purpose: "Joint multi-sensor tokenization fusing 12 S2 optical bands + 2 S1 SAR bands."
     checkpoint_path: "models/checkpoints/vit_base_14ch_fusion.pt"
+    pretrained: true
     fusion_strategy: "early_spectral_stem_with_cross_attention"
     dropout_rate: 0.1

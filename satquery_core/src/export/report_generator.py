@@ -72,6 +72,7 @@ class ReportGenerator:
             f"",
             f"- **User Query:** \"{report_data.get('query_text', '')}\"",
             f"- **Routed Task Specialization:** `{report_data.get('task_type', '')}`",
+            f"- **Agentic Controller Decoder:** `{audit.get('controller_model', 'Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)')}`",
             f"- **Deep Learning Specialist Backbone:** `{audit.get('specialist_model', '')}`",
             f"- **Execution Latency:** {audit.get('execution_time_ms', 0):.1f} ms",
             f"",

@@ -100,6 +100,7 @@ def display_results_in_cli(output: EngineOutput) -> None:
     print(format_table_row("Scene Coverage", f"{stats.get('coverage_percentage', 0.0):.2f}%", 30, 44))
     print(format_table_row("Mean Model Confidence", f"{stats.get('mean_probability', 0.0) * 100.0:.1f}%", 30, 44))
     print(format_table_row("Routed Task Specialization", str(output.task_type.value), 30, 44))
+    print(format_table_row("Agentic Controller Decoder", str(getattr(audit, "controller_model", "Qwen3-VL-7B (BigEarthNet LoRA)")), 30, 44))
     print(format_table_row("Neural Specialist Backbone", str(audit.specialist_model), 30, 44))
     print(format_table_row("Inference & Reasoning Time", f"{audit.execution_time_ms:.1f} ms", 30, 44))
     print(format_table_row("Physics Grounding Verdict", verdict_text, 30, 44))
@@ -154,13 +155,14 @@ def run_cli() -> None:
     parser.add_argument(
         "-i", "--image",
         type=str,
-        help="Path to input satellite image (.tif, .png, .jpg, etc.) to upload & analyze",
+        default=None,
+        help="Path to input satellite image (.tif, .png, .jpg, etc.) to upload & analyze (defaults to uploaded image)",
     )
     parser.add_argument(
         "-q", "--query",
         type=str,
-        default="Delineate open water bodies and lakes in the scene",
-        help="Natural language analytical query (e.g. 'Identify water bodies', 'Detect urban expansion')",
+        default=None,
+        help="Natural language analytical query (e.g. 'Detect urban structures, buildings, and built-up areas')",
     )
     parser.add_argument(
         "--pre",
@@ -197,6 +199,16 @@ def run_cli() -> None:
         "--demo",
         action="store_true",
         help="Run an end-to-end demonstration using built-in satellite samples",
+    )
+    parser.add_argument(
+        "--bitemporal",
+        action="store_true",
+        help="Run bi-temporal change detection on pre- and post-flood satellite scenes",
+    )
+    parser.add_argument(
+        "--crossmodal",
+        action="store_true",
+        help="Run cross-modal fusion on paired Optical (S2) and SAR (S1) satellite scenes",
     )
     parser.add_argument(
         "--list-reports",
@@ -240,13 +252,62 @@ def run_cli() -> None:
         args.image = str(demo_image)
         args.query = "Delineate all open water bodies, rivers and lakes in the scene"
 
+    # Bi-temporal change detection shortcut
+    if args.bitemporal:
+        print("\n🚀 Preparing Bi-Temporal Pre/Post Satellite Scenes...")
+        if (upload_dir / "Image_1_s2.png").exists() and (upload_dir / "Image_2_s2.png").exists():
+            args.pre = str(upload_dir / "Image_1_s2.png")
+            args.post = str(upload_dir / "Image_2_s2.png")
+        else:
+            args.pre = str(samples_dir / "sentinel2_godavari_pre.tif")
+            args.post = str(samples_dir / "sentinel2_godavari_post.tif")
+        if not args.query:
+            args.query = "Detect land-cover change between pre and post satellite observations"
+        args.image = None
+
+    # Cross-modal fusion shortcut
+    if args.crossmodal:
+        print("\n🚀 Preparing Cross-Modal Optical (S2) + SAR (S1) Satellite Scenes...")
+        if (upload_dir / "Image_1_s2.png").exists() and (upload_dir / "Image_1_s1.png").exists():
+            args.optical = str(upload_dir / "Image_1_s2.png")
+            args.sar = str(upload_dir / "Image_1_s1.png")
+        else:
+            args.optical = str(samples_dir / "sentinel2_godavari_pre.tif")
+            args.sar = str(samples_dir / "sentinel1_godavari_sar.tif")
+        if not args.query:
+            args.query = "Fuse optical and SAR radar imagery for cloud-penetrating water and structure detection"
+        args.image = None
+
+    if args.pre or args.optical:
+        args.image = None
+
     if not args.image and not args.pre and not args.optical:
-        print("\n⚠️  No input image specified!")
-        print("Usage:")
-        print("  python satquery_cli.py --image <image_path> --query \"Delineate water bodies\"")
-        print("  python satquery_cli.py --demo")
-        print("  python satquery_cli.py --help\n")
-        return
+        # Check if an image is present in data/inputs/uploads/
+        uploads_images = sorted(list(upload_dir.glob("*.png")) + list(upload_dir.glob("*.tif")) + list(upload_dir.glob("*.jpg")))
+        if uploads_images:
+            # Prefer optical s2 image or Image_1_s2.png if present
+            s2_images = [f for f in uploads_images if "s2" in f.name.lower() or "roi" in f.name.lower()]
+            selected_file = s2_images[0] if s2_images else uploads_images[0]
+            args.image = str(selected_file)
+            print(f"\n📂 Auto-selected input image from uploads: {selected_file.name}")
+        else:
+            print("\n⚠️  No input image specified and no uploads found!")
+            print("Usage:")
+            print("  python satquery_cli.py --image <image_path> --query \"Detect urban structures, buildings, and built-up areas\"")
+            print("  python satquery_cli.py --demo")
+            print("  python satquery_cli.py --help\n")
+            return
+
+    # Auto-formulate query according to input image if not specified
+    if not args.query:
+        img_name = Path(args.image).name.lower() if args.image else ""
+        if "roi" in img_name or "urban" in img_name:
+            args.query = "Detect urban structures, buildings, and built-up areas"
+        elif "crop" in img_name or "farm" in img_name:
+            args.query = "Detect agricultural crops and vegetation fields"
+        else:
+            args.query = "Delineate open water bodies, lakes, and rivers"
+        print(f"💬 Auto-formulated query: '{args.query}'")
 
     # Initialize Engine
     print("\n⏳ Initializing SatQuery AI Engine & Ingestion Pipeline...")

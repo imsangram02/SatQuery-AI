@@ -1,0 +1,73 @@
+{
+  "metadata": {
+    "report_id": "SATQUERY-390E0387",
+    "timestamp": "2026-09-10T11:24:18.377834+00:00",
+    "crs": "EPSG:4326",
+    "bounds": [
+      81.5,
+      16.5,
+      81.75,
+      16.75
+    ]
+  },
+  "query_text": "Delineate all open water bodies and lakes in the scene",
+  "task_type": "single_image_optical",
+  "summary_text": "Query Analysis Complete: 'Delineate all open water bodies and lakes in the scene'\n\n• Spatial & Semantic Findings:\n  Analysis of the scene demonstrates unambiguous hydrologic delineation. Strong absorption across the near-infrared/red spectrum and pronounced specular reflectance in optical bands define 12,853 pixels (14,554.80 hectares, 19.6% of total scene area) classified as surface water bodies with 66.8% mean confidence.\n\n• Morphological Layout:\n  The hydrologic boundaries trace natural bathymetric contours and drainage corridors with coherent spatial connectivity.\n\n• Physical & Radiometric Verification:\n  Deterministic physical cross-examination confirmed consistent radiometric signatures across: NDWI (PASSED, 100.0% agreement, mean 0.833) (Verdict: VERIFIED).\n\n• Forensic Trace:\n  Agentic Controller: Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)\n  Specialist Backbone: timm/convnextv2_base.fcmae_ft_in22k_in1k\n  Task Routing: single_image_optical | Trace ID: 390e0387 | Latency: 95.7 ms.",
+  "statistics": {
+    "detected_pixel_count": 12853,
+    "total_pixels": 65536,
+    "area_hectares": 14554.798,
+    "mean_probability": 0.668,
+    "coverage_percentage": 19.61,
+    "specialist_metadata": {
+      "specialist": "timm/convnextv2_base.fcmae_ft_in22k_in1k",
+      "model_identifier": "timm/convnextv2_base.fcmae_ft_in22k_in1k",
+      "modality": "optical",
+      "target_class": "water",
+      "target_class_idx": 0,
+      "dominant_class": "cropland",
+      "mean_confidence": 0.19616007804870605,
+      "detected_pixel_count": 12853,
+      "total_pixels": 65536,
+      "area_percentage": 19.61
+    }
+  },
+  "audit_trace": {
+    "trace_id": "390e0387-4ebe-48b2-aec1-15579d4ad96c",
+    "timestamp": "2026-09-10T11:24:18.377834+00:00",
+    "task_type": "single_image_optical",
+    "controller_model": "Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)",
+    "specialist_model": "timm/convnextv2_base.fcmae_ft_in22k_in1k",
+    "input_shapes": {
+      "primary_raw": [
+        12,
+        256,
+        256
+      ]
+    },
+    "preprocessing_applied": [
+      "primary_calibrated_surface_reflectance"
+    ],
+    "physics_checks": [
+      {
+        "index_name": "NDWI",
+        "passed": true,
+        "coverage_percentage": 100.0,
+        "mean_value": 0.8333,
+        "min_value": 0.8333,
+        "max_value": 0.8333,
+        "discrepancy_note": null
+      }
+    ],
+    "execution_time_ms": 95.65,
+    "verdict": "VERIFIED"
+  },
+  "artifacts": {
+    "input_image_path": "C:\\Users\\Rajdeep Chakraborty\\AppData\\Local\\Temp\\tmpiwmxxr8s\\sentinel2_godavari_pre.tif",
+    "secondary_image_path": null,
+    "mask_image_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\masks\\pred_390e0387_1789039458_mask.png",
+    "heatmap_image_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\heatmaps\\pred_390e0387_1789039458_heatmap.png",
+    "overlay_image_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\overlays\\pred_390e0387_1789039458_overlay.png",
+    "geojson_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\geojson\\pred_390e0387_1789039458_vectors.geojson"
+  }
+}

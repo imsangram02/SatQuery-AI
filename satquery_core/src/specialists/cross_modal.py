@@ -198,11 +198,16 @@ class CrossModalSpecialist:
         "thick_cloud",
     ]
 
+    MODEL_IDENTIFIER: str = "ViT Base S1+S2 (timm/vit_base_patch16_224 adapted to 14ch)"
+    BASE_TIMM_MODEL: str = "timm/vit_base_patch16_224"
+    ARCHITECTURE_NAME: str = "14-Channel Vision Transformer (ViT-Base Early Fusion)"
+
     def __init__(
         self,
         checkpoint_path: Optional[Union[str, Path]] = None,
         device: Optional[str] = None,
     ) -> None:
+        self.model_identifier = self.MODEL_IDENTIFIER
         self.device = torch.device(
             device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
         )
@@ -281,22 +286,101 @@ class CrossModalSpecialist:
         probs = torch.softmax(torch.from_numpy(accum_logits), dim=0).numpy()
 
         # Resolve target class index
-        target_idx = 0
+        target_idx = 1  # Default to clean_water
         if target_class_name is not None:
             name_lower = target_class_name.lower().strip()
-            for idx, cname in enumerate(self.class_names):
-                if name_lower in cname or cname in name_lower:
-                    target_idx = idx
-                    break
+            if any(k in name_lower for k in ["inundat", "submerg", "flooded_urban", "flood urban", "flooded urban"]):
+                target_idx = self.class_names.index("inundated_urban")
+            elif any(k in name_lower for k in ["urban", "built", "building", "settlement", "structure", "city", "town", "concrete", "infrastructure"]):
+                target_idx = self.class_names.index("built_up_settlement")
+            elif any(k in name_lower for k in ["flooded_agri", "flooded crop", "flooded field", "flooded farm"]):
+                target_idx = self.class_names.index("flooded_agriculture")
+            elif any(k in name_lower for k in ["water", "river", "lake", "flood", "inundation"]):
+                target_idx = self.class_names.index("clean_water")
+            elif any(k in name_lower for k in ["forest", "tree", "woodland", "jungle"]):
+                target_idx = self.class_names.index("dense_forest")
+            elif any(k in name_lower for k in ["crop", "vegetation", "agriculture", "plant", "farm"]):
+                target_idx = self.class_names.index("healthy_crop")
+            elif any(k in name_lower for k in ["soil", "bare", "ground", "dirt"]):
+                target_idx = self.class_names.index("bare_soil")
+            else:
+                for idx, cname in enumerate(self.class_names):
+                    if name_lower in cname or cname in name_lower:
+                        target_idx = idx
+                        break
 
         target_prob = probs[target_idx]
+
+        # Grounding with joint physical radiometric prior for multimodal Earth observation
+        target_name = self.class_names[target_idx]
+        if "water" in target_name:
+            if optical_geotiff.count >= 8:
+                green = optical_geotiff.get_band(3)  # B03
+                nir = optical_geotiff.get_band(8)    # B08
+                ndwi = (green - nir) / (green + nir + 1e-6)
+                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-8.0 * (ndwi - 0.05), -50.0, 50.0)))
+            elif optical_geotiff.count >= 3:
+                red = optical_geotiff.get_band(1)
+                blue = optical_geotiff.get_band(3)
+                ndwi_vis = (blue - red) / (blue + red + 1e-6)
+                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-10.0 * (ndwi_vis - 0.25), -50.0, 50.0)))
+            else:
+                opt_prob = target_prob
+
+            if sar_geotiff is not None and sar_geotiff.count >= 1:
+                b1 = sar_geotiff.get_band(1)
+                if np.max(b1) > 50.0:
+                    sar_prob = 1.0 - np.clip(b1 / 2200.0, 0.0, 1.0)
+                else:
+                    sar_prob = 1.0 / (1.0 + np.exp(np.clip(0.35 * (b1 + 16.0), -50.0, 50.0)))
+                joint_physical = 0.5 * opt_prob + 0.5 * sar_prob
+            else:
+                joint_physical = opt_prob
+
+            target_prob = 0.35 * target_prob + 0.65 * joint_physical
+
+        elif target_name == "built_up_settlement":
+            if optical_geotiff.count >= 3:
+                r = optical_geotiff.get_band(1).astype(np.float32)
+                g = optical_geotiff.get_band(2).astype(np.float32)
+                b = optical_geotiff.get_band(3).astype(np.float32)
+                rgb_mean = (r + g + b) / 3.0
+                thresh = 90.0 if np.max(rgb_mean) > 1.0 else 0.35
+                scale = 0.03 if np.max(rgb_mean) > 1.0 else 8.0
+                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-scale * (rgb_mean - thresh), -50.0, 50.0)))
+            else:
+                opt_prob = target_prob
+
+            if sar_geotiff is not None and sar_geotiff.count >= 1:
+                sb1 = sar_geotiff.get_band(1).astype(np.float32)
+                if np.max(sb1) > 50.0:
+                    sar_prob = 1.0 / (1.0 + np.exp(np.clip(-0.03 * (sb1 - 100.0), -50.0, 50.0)))
+                else:
+                    sar_prob = 1.0 / (1.0 + np.exp(np.clip(-0.4 * (sb1 + 10.0), -50.0, 50.0)))
+                joint_physical = 0.5 * opt_prob + 0.5 * sar_prob
+            else:
+                joint_physical = opt_prob
+
+            target_prob = 0.35 * target_prob + 0.65 * joint_physical
+
+        elif any(k in target_name for k in ["crop", "forest", "vegetation"]):
+            if optical_geotiff.count >= 8:
+                red = optical_geotiff.get_band(4)    # B04
+                nir = optical_geotiff.get_band(8)    # B08
+                ndvi = (nir - red) / (nir + red + 1e-6)
+                opt_prob = 1.0 / (1.0 + np.exp(np.clip(-8.0 * (ndvi - 0.25), -50.0, 50.0)))
+                target_prob = 0.35 * target_prob + 0.65 * opt_prob
+
+        target_prob = np.clip(target_prob, 0.0, 1.0).astype(np.float32)
         binary_mask = target_prob >= confidence_threshold
 
         detected_count = int(np.sum(binary_mask))
         total_pixels = int(height * width)
 
         metadata = {
-            "specialist": "vit_base_patch16_14ch",
+            "specialist": self.model_identifier,
+            "model_identifier": self.model_identifier,
+            "architecture": self.ARCHITECTURE_NAME,
             "fusion_channels": 14,
             "target_class": self.class_names[target_idx],
             "detected_pixel_count": detected_count,

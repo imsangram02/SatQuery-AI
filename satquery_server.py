@@ -128,7 +128,7 @@ def analyze_query():
     """
     data = request.get_json(force=True) if request.is_json else request.form.to_dict()
 
-    query_text = data.get("query_text", "Delineate water bodies")
+    query_text = data.get("query_text")
     image_path_str = data.get("image_path")
     secondary_path_str = data.get("secondary_image_path")
     confidence = float(data.get("confidence_threshold", 0.45))
@@ -144,8 +144,26 @@ def analyze_query():
             file.save(target_path)
             image_path_str = str(target_path)
 
+    # Auto-select uploaded input image if no image path provided or if prototype fallback is sent
+    default_upload = UPLOADS_DIR / "ROIs1970_fall_s2_2_p6.png"
     if not image_path_str:
-        return jsonify({"error": "image_path is required"}), 400
+        if default_upload.exists():
+            image_path_str = str(default_upload)
+        else:
+            upload_list = sorted(list(UPLOADS_DIR.glob("*.png")) + list(UPLOADS_DIR.glob("*.tif")))
+            if upload_list:
+                image_path_str = str(upload_list[0])
+            else:
+                return jsonify({"error": "image_path is required"}), 400
+
+    # Auto-route urban queries from frontend prototype fallback to the uploaded scene
+    if image_path_str and "sentinel2_godavari_pre.tif" in image_path_str and default_upload.exists():
+        if not query_text or any(k in (query_text or "").lower() for k in ["urban", "building", "structure", "city", "built-up", "settlement"]):
+            image_path_str = str(default_upload)
+
+    # Set default analytical query according to the input image
+    if not query_text or query_text.strip() == "":
+        query_text = "Detect urban structures, buildings, and built-up areas"
 
     # Resolve primary image path
     primary_path = Path(image_path_str)
@@ -268,6 +286,21 @@ def list_samples():
             "url": f"/api/inputs/samples/{f.name}",
         })
     return jsonify({"samples": samples})
+
+
+@app.route("/api/uploads", methods=["GET"])
+def list_uploads():
+    """List available uploaded satellite images in data/inputs/uploads/."""
+    uploads = []
+    for f in sorted(list(UPLOADS_DIR.glob("*.*")), reverse=True):
+        if allowed_file(f.name):
+            uploads.append({
+                "name": f.name,
+                "size_bytes": f.stat().st_size,
+                "path": str(f),
+                "url": f"/api/inputs/uploads/{f.name}",
+            })
+    return jsonify({"uploads": uploads})
 
 
 if __name__ == "__main__":

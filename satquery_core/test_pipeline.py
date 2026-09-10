@@ -232,7 +232,7 @@ def run_pipeline_tests() -> None:
 
         change_output: EngineOutput = engine.execute_query(change_query)
         assert change_output.task_type == TaskType.CHANGE_DETECTION, "TaskType mismatch"
-        assert change_output.audit_trace.specialist_model == "siamese_change_detection"
+        assert change_output.audit_trace.specialist_model == "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0"
         print(f"  [OK] Routed correctly to: {change_output.audit_trace.specialist_model}")
         print(f"  [OK] Bi-temporal change evaluation completed in {change_output.audit_trace.execution_time_ms:.1f} ms")
 
@@ -250,7 +250,7 @@ def run_pipeline_tests() -> None:
 
         fusion_output: EngineOutput = engine.execute_query(fusion_query)
         assert fusion_output.task_type == TaskType.CROSS_MODAL_FUSION, "TaskType mismatch"
-        assert fusion_output.audit_trace.specialist_model == "cross_modal_fusion"
+        assert "ViT Base S1+S2" in fusion_output.audit_trace.specialist_model
         assert fusion_output.geojson is not None
         print(f"  [OK] Routed correctly to: {fusion_output.audit_trace.specialist_model}")
         print(f"  [OK] 14-channel joint tensor processed ({fusion_output.statistics['detected_pixel_count']} px)")

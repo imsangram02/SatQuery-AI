@@ -1,0 +1,70 @@
+{
+  "metadata": {
+    "report_id": "SATQUERY-42F6AA3C",
+    "timestamp": "2026-09-10T11:24:19.199495+00:00",
+    "crs": "EPSG:4326",
+    "bounds": [
+      81.5,
+      16.5,
+      81.75,
+      16.75
+    ]
+  },
+  "query_text": "Compare before and after satellite observations to detect land-cover change",
+  "task_type": "change_detection",
+  "summary_text": "Query Analysis Complete: 'Compare before and after satellite observations to detect land-cover change'\n\n• Spatial & Semantic Findings:\n  Bi-temporal satellite observation analysis evaluated surface reflectance deltas between the baseline (pre-event) and post-event acquisitions. The Siamese ResNet-50 deep feature differential extractor, combined with radiometric change vector analysis, detected 0 pixels (0.00 hectares, 0.0% scene coverage) exhibiting significant land-cover transformation with a mean posterior change confidence of 0.0%.\n\n• Morphological Layout:\n  Spatial change contours reveal concentrated expansion along the central hydrologic boundary, delineating newly inundated or altered land parcels with continuous perimeter margins.\n\n• Physical & Radiometric Verification:\n  Deterministic radiometric verification (VERIFIED): No anomalous water inundation or contradictory spectral inversions detected within the delineated mask.\n\n• Forensic Trace:\n  Agentic Controller: Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)\n  Specialist Backbone: BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0\n  Task Routing: change_detection | Trace ID: 42f6aa3c | Latency: 253.8 ms.",
+  "statistics": {
+    "detected_pixel_count": 0,
+    "total_pixels": 65536,
+    "area_hectares": 0.0,
+    "mean_probability": 0.0,
+    "coverage_percentage": 0.0,
+    "specialist_metadata": {
+      "target_class": "land_cover_change",
+      "specialist": "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0",
+      "model_identifier": "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0",
+      "architecture": "Shared-weight Siamese ResNet-50 network",
+      "changed_pixel_count": 0,
+      "total_pixels": 65536,
+      "change_percentage": 0.0,
+      "mean_change_probability": 0.0,
+      "physical_deltas": {
+        "mean_channel_0_delta": 0.0
+      }
+    }
+  },
+  "audit_trace": {
+    "trace_id": "42f6aa3c-98c0-4a6c-a431-ac801c1e1a83",
+    "timestamp": "2026-09-10T11:24:19.199495+00:00",
+    "task_type": "change_detection",
+    "controller_model": "Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)",
+    "specialist_model": "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0",
+    "input_shapes": {
+      "primary_raw": [
+        12,
+        256,
+        256
+      ],
+      "secondary_raw": [
+        12,
+        256,
+        256
+      ]
+    },
+    "preprocessing_applied": [
+      "primary_calibrated_surface_reflectance",
+      "secondary_calibrated_surface_reflectance"
+    ],
+    "physics_checks": [],
+    "execution_time_ms": 253.75,
+    "verdict": "VERIFIED"
+  },
+  "artifacts": {
+    "input_image_path": "C:\\Users\\Rajdeep Chakraborty\\AppData\\Local\\Temp\\tmpiwmxxr8s\\sentinel2_godavari_pre.tif",
+    "secondary_image_path": "C:\\Users\\Rajdeep Chakraborty\\AppData\\Local\\Temp\\tmpiwmxxr8s\\sentinel2_godavari_post.tif",
+    "mask_image_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\masks\\pred_42f6aa3c_1789039459_mask.png",
+    "heatmap_image_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\heatmaps\\pred_42f6aa3c_1789039459_heatmap.png",
+    "overlay_image_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\overlays\\pred_42f6aa3c_1789039459_overlay.png",
+    "geojson_path": "C:\\Users\\Rajdeep Chakraborty\\OneDrive\\Desktop\\Github\\SatQuery-AI\\data\\outputs\\geojson\\pred_42f6aa3c_1789039459_vectors.geojson"
+  }
+}

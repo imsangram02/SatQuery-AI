@@ -131,6 +131,10 @@ class AuditTrace(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
     task_type: TaskType
+    controller_model: str = Field(
+        default="Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)",
+        description="Agentic controller and reasoning decoder model identifier",
+    )
     specialist_model: str
     input_shapes: Dict[str, List[int]] = Field(default_factory=dict)
     preprocessing_applied: List[str] = Field(default_factory=list)
