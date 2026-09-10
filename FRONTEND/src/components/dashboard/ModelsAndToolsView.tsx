@@ -1,32 +1,58 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Cpu, CheckCircle2, Zap, Layers, Sparkles, ArrowRight, ShieldCheck, Activity } from 'lucide-react';
 import { MOCK_MODEL_TOOLS } from '../../data/mockData';
 import { AnalysisTaskType } from '../../types';
+import { SatQueryApiService, BackendModel } from '../../services/apiService';
 
 interface ModelsAndToolsViewProps {
   onSelectModelTask?: (taskType: AnalysisTaskType) => void;
 }
 
 export const ModelsAndToolsView: React.FC<ModelsAndToolsViewProps> = ({ onSelectModelTask }) => {
+  const [models, setModels] = useState<BackendModel[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadModels = async () => {
+      try {
+        const liveModels = await SatQueryApiService.getModels();
+        if (mounted && liveModels && liveModels.length > 0) {
+          setModels(liveModels);
+        } else if (mounted) {
+          setModels(MOCK_MODEL_TOOLS as unknown as BackendModel[]);
+        }
+      } catch {
+        if (mounted) setModels(MOCK_MODEL_TOOLS as unknown as BackendModel[]);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    };
+    loadModels();
+    return () => { mounted = false; };
+  }, []);
+
+  const displayList = models.length > 0 ? models : (MOCK_MODEL_TOOLS as unknown as BackendModel[]);
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-200">
       {/* Header */}
       <div className="border-b border-slate-200 dark:border-[#263B5C] pb-5">
         <div className="flex items-center gap-2 text-xs font-mono font-bold text-[#22D3EE] uppercase tracking-wider">
           <Cpu className="w-4 h-4 text-[#22D3EE]" />
-          <span>Autonomous AI Inventory</span>
+          <span>Autonomous AI Inventory • Master Core Engine</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-[#F5F7FF] mt-1">
           Models & Tools Directory
         </h1>
         <p className="text-xs sm:text-sm text-slate-500 dark:text-[#A8B6CF] mt-1">
-          Inspect the 6 specialized remote-sensing neural engines orchestrated by the SatQuery AI agent.
+          Inspect the 6 specialized remote-sensing neural backbones and deterministic physics engines orchestrated offline by SatQuery AI.
         </p>
       </div>
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {MOCK_MODEL_TOOLS.map((tool) => (
+        {displayList.map((tool) => (
           <div
             key={tool.id}
             className="p-6 rounded-2xl bg-white dark:bg-[#101F38] border border-slate-200 dark:border-[#263B5C] hover:border-[#5B8CFF]/60 dark:hover:bg-[#152A48] hover:shadow-xl dark:hover:shadow-[#5B8CFF]/10 transition-all duration-200 flex flex-col justify-between group"
@@ -84,7 +110,7 @@ export const ModelsAndToolsView: React.FC<ModelsAndToolsViewProps> = ({ onSelect
               <div className="mt-5 pt-3 border-t border-slate-100 dark:border-[#263B5C] flex items-center justify-between text-xs font-mono">
                 <span className="text-slate-400 dark:text-[#71819B]">Latency: ~{tool.latencyMs}ms</span>
                 <button
-                  onClick={() => onSelectModelTask(tool.taskType)}
+                  onClick={() => onSelectModelTask(tool.taskType as AnalysisTaskType)}
                   className="flex items-center gap-1.5 font-bold text-[#5B8CFF] hover:text-[#22D3EE] active:scale-95 transition-all"
                 >
                   <span>Launch Task</span>

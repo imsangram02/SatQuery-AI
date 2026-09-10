@@ -27,6 +27,7 @@ import {
 import { ChatMessage, AOIPreset, Screen } from '../../types';
 import { MOCK_AOI_PRESETS } from '../../data/mockData';
 import { OrbitMascot } from '../mascot/OrbitMascot';
+import { SatQueryApiService } from '../../services/apiService';
 
 interface DedicatedChatViewProps {
   onNavigateToWorkspace: (aoi?: AOIPreset) => void;
@@ -122,8 +123,26 @@ You can query any planetary coordinate, request disturbance quantifications, com
     setAttachedFile(null);
     setIsProcessing(true);
 
-    // Dynamic response generation based on query content
-    setTimeout(() => {
+    // Query live SatQuery Copilot API
+    const livePromise = SatQueryApiService.sendChat(query, preset?.name);
+
+    setTimeout(async () => {
+      const liveRes = await livePromise;
+      if (liveRes && liveRes.reply) {
+        const agentMessage: ChatMessage = {
+          id: `msg-agent-${Date.now()}`,
+          sender: 'agent',
+          timestamp: new Date().toTimeString().split(' ')[0],
+          text: liveRes.reply,
+          traces: (liveRes.traces as any) || [],
+          groundedStats: liveRes.groundedStats,
+          suggestedAction: (liveRes.suggestedAction as any)
+        };
+        setMessages(prev => [...prev, agentMessage]);
+        setIsProcessing(false);
+        return;
+      }
+
       const isAmazon = query.toLowerCase().includes('amazon') || query.toLowerCase().includes('canopy') || query.toLowerCase().includes('rondonia');
       const isFlood = query.toLowerCase().includes('flood') || query.toLowerCase().includes('rhine') || query.toLowerCase().includes('sar');
       const isFire = query.toLowerCase().includes('fire') || query.toLowerCase().includes('burn') || query.toLowerCase().includes('nbr');

@@ -1,0 +1,193 @@
+{
+  "metadata": {
+    "report_id": "SATQUERY-E9D86A7F",
+    "timestamp": "2026-09-10T19:30:54.504820+00:00",
+    "crs": "EPSG:4326",
+    "bounds": [
+      90.528717,
+      22.499662,
+      91.091766,
+      22.848112
+    ]
+  },
+  "query_text": "What changed between these two dates?",
+  "task_type": "change_detection",
+  "summary_text": "🛰️ Bi-Temporal Multitemporal Change Forensic (CDVQA Specialization):\n• Direct VQA Answer: Significant land-cover transformation delineated across 200,658.58 hectares (3,771,442 pixels, 90.0% scene footprint).\n• Spatial Localization: Concentrated predominantly in the Central sector of the scene (3,771,442 px, centroid row 836, col 1258).\n• Siamese Change Confidence: 87.7% (BIFOLD ResNet-50)\n\n🎯 Localized Grounding Bounding Boxes (6 regions identified):\n  • [bb-1] Central sector: coordinates [32, 34, 2470, 1647] (28040.2 ha, 88% conf)\n  • [bb-2] Central-Eastern sector: coordinates [2450, 660, 2492, 759] (25.1 ha, 93% conf)\n  • [bb-3] Central-Western sector: coordinates [1, 582, 45, 693] (19.0 ha, 92% conf)\n  • [bb-4] Southern-Eastern sector: coordinates [1879, 1633, 1946, 1665] (9.8 ha, 91% conf)\n  • [bb-5] Southern-Eastern sector: coordinates [1841, 1616, 1886, 1673] (9.8 ha, 92% conf)\n  • [bb-6] Central-Western sector: coordinates [5, 835, 37, 871] (7.4 ha, 92% conf)\n\nQuery: 'What changed between these two dates?'\n\n• Physical & Radiometric Verification:\n  Deterministic radiometric verification (VERIFIED): Spectral bounds consistent with physical Earth Observation reflectance.\n\n• Forensic Trace:\n  Agentic Controller: Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)\n  Specialist Backbone: BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0\n  Task Routing: change_detection | Latency: 62490.4 ms.",
+  "statistics": {
+    "detected_pixel_count": 3771442,
+    "total_pixels": 4190000,
+    "area_hectares": 200658.582,
+    "mean_probability": 0.877,
+    "coverage_percentage": 90.01,
+    "bounding_boxes": [
+      {
+        "id": "bb-1",
+        "label": "Land_Cover_Change (88%)",
+        "sector": "Central",
+        "pixel_box": [
+          32,
+          34,
+          2470,
+          1647
+        ],
+        "pixel_count": 2804017,
+        "area_hectares": 28040.17,
+        "solidity": 0.712,
+        "x": 1.3,
+        "y": 2.0,
+        "width": 97.6,
+        "height": 96.3,
+        "color": "#ef4444",
+        "confidence": 88
+      },
+      {
+        "id": "bb-2",
+        "label": "Land_Cover_Change (93%)",
+        "sector": "Central-Eastern",
+        "pixel_box": [
+          2450,
+          660,
+          2492,
+          759
+        ],
+        "pixel_count": 2514,
+        "area_hectares": 25.14,
+        "solidity": 0.585,
+        "x": 98.0,
+        "y": 39.4,
+        "width": 1.7,
+        "height": 6.0,
+        "color": "#ef4444",
+        "confidence": 93
+      },
+      {
+        "id": "bb-3",
+        "label": "Land_Cover_Change (92%)",
+        "sector": "Central-Western",
+        "pixel_box": [
+          1,
+          582,
+          45,
+          693
+        ],
+        "pixel_count": 1899,
+        "area_hectares": 18.99,
+        "solidity": 0.377,
+        "x": 0.0,
+        "y": 34.7,
+        "width": 1.8,
+        "height": 6.7,
+        "color": "#ef4444",
+        "confidence": 92
+      },
+      {
+        "id": "bb-4",
+        "label": "Land_Cover_Change (91%)",
+        "sector": "Southern-Eastern",
+        "pixel_box": [
+          1879,
+          1633,
+          1946,
+          1665
+        ],
+        "pixel_count": 978,
+        "area_hectares": 9.78,
+        "solidity": 0.436,
+        "x": 75.2,
+        "y": 97.4,
+        "width": 2.7,
+        "height": 2.0,
+        "color": "#ef4444",
+        "confidence": 91
+      },
+      {
+        "id": "bb-5",
+        "label": "Land_Cover_Change (92%)",
+        "sector": "Southern-Eastern",
+        "pixel_box": [
+          1841,
+          1616,
+          1886,
+          1673
+        ],
+        "pixel_count": 976,
+        "area_hectares": 9.76,
+        "solidity": 0.366,
+        "x": 73.6,
+        "y": 96.4,
+        "width": 1.8,
+        "height": 3.5,
+        "color": "#ef4444",
+        "confidence": 92
+      },
+      {
+        "id": "bb-6",
+        "label": "Land_Cover_Change (92%)",
+        "sector": "Central-Western",
+        "pixel_box": [
+          5,
+          835,
+          37,
+          871
+        ],
+        "pixel_count": 737,
+        "area_hectares": 7.37,
+        "solidity": 0.604,
+        "x": 0.2,
+        "y": 49.8,
+        "width": 1.3,
+        "height": 2.2,
+        "color": "#ef4444",
+        "confidence": 92
+      }
+    ],
+    "specialist_metadata": {
+      "target_class": "land_cover_change",
+      "specialist": "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0",
+      "model_identifier": "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0",
+      "architecture": "Shared-weight Siamese ResNet-50 network",
+      "changed_pixel_count": 3771442,
+      "total_pixels": 4190000,
+      "change_percentage": 90.01,
+      "mean_change_probability": 0.877,
+      "change_location": "Concentrated predominantly in the Central sector of the scene (3,771,442 px, centroid row 836, col 1258)",
+      "physical_deltas": {
+        "mean_channel_0_delta": 0.0229
+      }
+    }
+  },
+  "audit_trace": {
+    "trace_id": "e9d86a7f-f032-4ac6-8d34-a9a8b53cf561",
+    "timestamp": "2026-09-10T19:30:54.504820+00:00",
+    "task_type": "change_detection",
+    "controller_model": "Qwen/Qwen3-VL-7B-Instruct (LoRA: aanandmodi/satquery-qwen3vl-bigearthnet-txt-lora)",
+    "specialist_model": "BIFOLD-BigEarthNetv2-0/resnet50-s2-v0.2.0",
+    "input_shapes": {
+      "primary_raw": [
+        3,
+        1676,
+        2500
+      ],
+      "secondary_raw": [
+        3,
+        1676,
+        2500
+      ]
+    },
+    "preprocessing_applied": [
+      "primary_calibrated_surface_reflectance",
+      "secondary_calibrated_surface_reflectance"
+    ],
+    "physics_checks": [],
+    "execution_time_ms": 62490.38,
+    "verdict": "VERIFIED"
+  },
+  "artifacts": {
+    "input_image_path": "E:\\SatQuery-AI\\data\\inputs\\uploads\\upload_1789068585_t0_preFlood.tiff",
+    "secondary_image_path": "E:\\SatQuery-AI\\data\\inputs\\uploads\\upload_1789068585_sec_t1_postFlood.tiff",
+    "mask_image_path": "E:\\SatQuery-AI\\data\\outputs\\masks\\pred_e9d86a7f_1789068654_mask.png",
+    "heatmap_image_path": "E:\\SatQuery-AI\\data\\outputs\\heatmaps\\pred_e9d86a7f_1789068654_heatmap.png",
+    "overlay_image_path": "E:\\SatQuery-AI\\data\\outputs\\overlays\\pred_e9d86a7f_1789068654_overlay.png",
+    "geojson_path": "E:\\SatQuery-AI\\data\\outputs\\geojson\\pred_e9d86a7f_1789068654_vectors.geojson"
+  }
+}
