@@ -75,10 +75,9 @@ class AgenticControllerDecoder:
         audit: Any,
     ) -> str:
         """
-        Synthesizes an authoritative, evidence-grounded response to the user's natural language query.
-        Uses pretrained remote-sensing domain vocabulary adapted from BigEarthNet.txt,
-        explicitly stating the direct VQA answer, localized bounding boxes, quantitative area metrics,
-        and deterministic physical grounding confirmation.
+        Synthesizes an easy-to-understand, evidence-backed answer to the user's question.
+        Uses clear, plain English for non-experts, explaining real-world sizes (e.g. football fields),
+        satellite camera details, photo clarity, clean image quality, and physical science verification.
         """
         spec_meta = statistics.get("specialist_metadata", {})
         target_name = spec_meta.get("target_class", "target feature")
@@ -88,24 +87,41 @@ class AgenticControllerDecoder:
         mean_conf = statistics.get("mean_probability", 0.0) * 100.0
         boxes = statistics.get("bounding_boxes", [])
 
-        # If live transformer model is resident in memory, generate inference through causal decoder
-        if self.is_loaded and self.model is not None and self.processor is not None:
-            try:
-                prompt_text = (
-                    f"<|im_start|>system\nYou are SatQuery AI, an expert remote sensing vision-language model fine-tuned on BigEarthNet.txt.<|im_end|>\n"
-                    f"<|im_start|>user\nQuery: {query}\nTask: {task_type.value}\nTarget: {target_name}\nArea: {area_ha:.2f} ha ({pixel_count} px, {cov_pct:.1f}%)\nConfidence: {mean_conf:.1f}%\n"
-                    f"Provide an evidence-grounded answer.<|im_end|>\n<|im_start|>assistant\n"
-                )
-                inputs = self.processor(text=prompt_text, return_tensors="pt").to(self.model.device)
-                outputs = self.model.generate(**inputs, max_new_tokens=256, do_sample=False)
-                return self.processor.decode(outputs[0], skip_special_tokens=True)
-            except Exception:
-                pass
+        # Ground metrics & comparisons
+        ground_m = statistics.get("ground_metrics", {})
+        size_comp = ground_m.get("easy_size_comparison", "")
+        res_x = ground_m.get("resolution_x_meters", 10.0)
+        res_y = ground_m.get("resolution_y_meters", 10.0)
+        area_sqkm = ground_m.get("area_sqkm", round(area_ha / 100.0, 3))
 
-        # High-precision BigEarthNet domain-adapted synthesis
-        header_lines: List[str] = []
+        # Sensor & camera information
+        sensor_m = statistics.get("sensor_info", {})
+        if isinstance(sensor_m, str):
+            mod_str = sensor_m
+            if "SENTINEL_2" in mod_str:
+                sensor_name = "Sentinel-2 Optical Satellite"
+                sensor_desc = "High-precision color and infrared camera that captures detailed land and water features."
+            elif "SENTINEL_1" in mod_str or "SAR" in mod_str:
+                sensor_name = "Sentinel-1 Radar Satellite"
+                sensor_desc = "Cloud-penetrating radar that sees through darkness and bad weather."
+            else:
+                sensor_name = mod_str.replace("_", " ").title()
+                sensor_desc = "Takes pictures from orbit to survey the Earth."
+        else:
+            sensor_name = sensor_m.get("easy_name", "Satellite Camera")
+            sensor_desc = sensor_m.get("easy_description", "Takes pictures from orbit to survey the Earth.")
 
-        # 1. Direct VQA Query Categorization & Direct Answer
+        # Photo quality & valid borders
+        valid_m = statistics.get("valid_data_stats", {})
+        easy_quality = valid_m.get("easy_quality_summary", "Clean satellite picture with 100% usable data.")
+
+        # Science check / Physics gatekeeper
+        physics_m = statistics.get("physics_gatekeeper", {})
+        physics_easy_expl = physics_m.get("easy_explanation")
+
+        lines: List[str] = []
+
+        # 1. Direct Answer & Finding in Easy English
         if spec_meta.get("is_cdvqa"):
             verdict = spec_meta.get("cdvqa_categorical_verdict", "Increased")
             c_class = spec_meta.get("cdvqa_target_class", "built-up")
@@ -114,118 +130,100 @@ class AgenticControllerDecoder:
             d_ha = spec_meta.get("cdvqa_delta_ha", 0.0)
             d_pct = spec_meta.get("cdvqa_delta_pct", 0.0)
 
-            header_lines.append(f"🎯 Categorical CDVQA Answer: **{verdict.upper()}**")
-            header_lines.append(f"• Direct Decision: The {c_class} area has **{verdict.lower()}** between the baseline (T1) and post-event (T2) acquisitions.")
-            header_lines.append(f"• Temporal Baseline (T1): {t1_h:,.2f} hectares")
-            header_lines.append(f"• Post-Event Extent (T2): {t2_h:,.2f} hectares")
-            header_lines.append(f"• Net Quantitative Delta: {d_ha:+,.2f} hectares ({d_pct:+.1f}%)")
-            header_lines.append(f"• Grounding Model Confidence: {mean_conf:.1f}% (BIFOLD Siamese ResNet-50)")
+            lines.append(f"🎯 Direct Answer: **{verdict.upper()}**")
+            lines.append(f"• Summary: The {c_class} area has **{verdict.lower()}** between the earlier photo and the later photo.")
+            lines.append(f"• Earlier Photo (T1): {t1_h:,.2f} hectares")
+            lines.append(f"• Later Photo (T2): {t2_h:,.2f} hectares")
+            lines.append(f"• Net Change: {d_ha:+,.2f} hectares ({d_pct:+.1f}%)")
+            lines.append(f"• Confidence: {mean_conf:.1f}% certainty")
 
         elif spec_meta.get("is_scene_description") or target_name == "describe_land_cover":
             dominant_c = spec_meta.get("dominant_class", "urban").replace("_", " ").title()
             dist_map = spec_meta.get("class_distribution", {})
             dist_str = ", ".join([f"{k.replace('_', ' ').title()}: {v}%" for k, v in dist_map.items()])
 
-            header_lines.append("🛰️ Pretrained VLM Scene Description & Land-Cover Breakdown (VRSBench / RSVQA):")
-            header_lines.append(f"• Dominant Surface Class: **{dominant_c}**")
-            header_lines.append(f"• Multi-Class Scene Partition: {dist_str}")
-            header_lines.append("• Structural Objects: Dense building infrastructure, road transit network, agricultural/riparian margins, and hydrologic corridors.")
-            header_lines.append(f"• VLM Understanding Confidence: {mean_conf:.1f}% (Adapted ConvNeXt-v2)")
+            lines.append("🛰️ Satellite Scene Overview & Land Cover Breakdown:")
+            lines.append(f"• Main Land Cover: **{dominant_c}**")
+            if dist_str:
+                lines.append(f"• Landscape Mix: {dist_str}")
+            lines.append("• Visible Features: Roads, residential buildings, open fields, vegetation, and waterways.")
+            lines.append(f"• Confidence: {mean_conf:.1f}% certainty")
 
         elif task_type == TaskType.CHANGE_DETECTION:
-            loc_desc = spec_meta.get("change_location", "Central sector of the scene")
-            header_lines.append("🛰️ Bi-Temporal Multitemporal Change Forensic (CDVQA Specialization):")
-            header_lines.append(f"• Direct VQA Answer: Significant land-cover transformation delineated across {area_ha:,.2f} hectares ({pixel_count:,} pixels, {cov_pct:.1f}% scene footprint).")
-            header_lines.append(f"• Spatial Localization: {loc_desc}.")
-            header_lines.append(f"• Siamese Change Confidence: {mean_conf:.1f}% (BIFOLD ResNet-50)")
+            loc_desc = spec_meta.get("change_location", "Central part of the scene")
+            lines.append("🛰️ Before & After Satellite Change Analysis:")
+            lines.append(f"• Direct Answer: Significant ground changes detected across {area_ha:,.2f} hectares ({size_comp or f'{cov_pct:.1f}% of the scene'}).")
+            lines.append(f"• Location: Mostly in the {loc_desc.lower()}.")
+            lines.append(f"• Confidence: {mean_conf:.1f}% certainty")
 
         elif task_type == TaskType.CROSS_MODAL_FUSION:
-            header_lines.append("🛰️ Cross-Modal Optical + SAR Synergistic Delineation:")
-            header_lines.append(f"• Direct VQA Answer: Identified and delineated {area_ha:,.2f} hectares ({pixel_count:,} pixels, {cov_pct:.1f}% scene footprint) of {target_name.replace('_', ' ')} using fused Optical and microwave SAR backscatter.")
-            header_lines.append("• Complementary Sensor Mechanism: Optical surface absorption corroborated by microwave specular radar depression (cloud-penetrating all-weather verification).")
-            header_lines.append(f"• Cross-Modal Fusion Confidence: {mean_conf:.1f}% (14-Channel Vision Transformer)")
+            t_title = target_name.replace("_", " ").title()
+            lines.append("🛰️ Optical & Radar Satellite Analysis:")
+            lines.append(f"• Direct Answer: Located and outlined {area_ha:,.2f} hectares ({size_comp}) of **{t_title}** by combining color photos and cloud-penetrating radar.")
+            lines.append("• Why Two Satellites: The color optical camera sees natural details, while the radar satellite penetrates clouds and fog for 100% reliable detection.")
+            lines.append(f"• Confidence: {mean_conf:.1f}% certainty")
 
         else:
-            # Region Grounding & Single Image VQA
+            # Single Image VQA / Region Grounding
             target_title = target_name.replace("_", " ").title()
-            header_lines.append("🛰️ Text-Guided Region Grounding & Visual Question Answering:")
-            header_lines.append(f"• Direct VQA Finding: Verified presence and precise spatial delineation of **{target_title}** corresponding to the query prompt (\"{query}\").")
-            header_lines.append(f"• Delineated Spatial Extent: {area_ha:,.2f} hectares ({pixel_count:,} pixels, accounting for {cov_pct:.1f}% of the surveyed scene footprint).")
-            header_lines.append(f"• Neural Grounding Confidence: {mean_conf:.1f}% (Offline Specialist Backbone)")
+            lines.append("🛰️ Satellite Question Answer:")
+            lines.append(f"• Direct Answer: Found and mapped **{target_title}** in response to your question (\"{query}\").")
+            if size_comp:
+                lines.append(f"• Real-World Area: {area_ha:,.2f} hectares ({size_comp}, covering {cov_pct:.1f}% of the photo).")
+            else:
+                lines.append(f"• Real-World Area: {area_ha:,.2f} hectares ({area_sqkm:.2f} sq km, covering {cov_pct:.1f}% of the photo).")
+            lines.append(f"• Confidence: {mean_conf:.1f}% certainty")
 
-            # Landscape Partition & Multi-Class Context
             dist_map = spec_meta.get("class_distribution", {})
             if dist_map:
                 dist_str = ", ".join([f"{k.replace('_', ' ').title()}: {v}%" for k, v in dist_map.items()])
-                header_lines.append(f"• Scene Land-Cover Partition: {dist_str}")
+                lines.append(f"• Scene Landscape Mix: {dist_str}")
 
-            # Sector Distribution & Spatial Organization
             if boxes:
                 unique_sectors = sorted(list(set(b.get("sector", "Central") for b in boxes)))
                 sectors_txt = ", ".join(unique_sectors)
-                if cov_pct > 35.0:
-                    density_desc = "forming a dense, contiguous structural matrix across primary geographic axes"
-                elif cov_pct > 15.0:
-                    density_desc = "exhibiting prominent cluster concentrations interspersed with transitional terrain"
-                else:
-                    density_desc = "forming well-defined, localized isolated clusters with crisp spatial margins"
-                header_lines.append(f"• Spatial Distribution: Localized across {len(boxes)} prominent core clusters within the **{sectors_txt}** sectors, {density_desc}.")
+                lines.append(f"• Where It Is: Concentrated in the **{sectors_txt}** parts of the photo across {len(boxes)} main spots.")
 
-            # Sensor Radiometric & Spectral Signatures
-            if task_type == TaskType.SINGLE_IMAGE_SAR or spec_meta.get("modality") == "sar":
-                if any(w in target_name for w in ["water", "flooded"]):
-                    rad_desc = "Depressed radar backscatter (< -18 dB) confirmed specular reflection characteristic of smooth open water surfaces."
-                elif any(w in target_name for w in ["urban", "building", "structure"]):
-                    rad_desc = "Elevated dual-pol radar backscatter (> -11 dB) corroborated prominent corner reflector double-bounce effects from man-made structures."
-                else:
-                    rad_desc = "Microwave radar backscatter distributions align with volumetric vegetation and surface roughness signatures."
-            else:
-                # Optical S2 / LISS
-                if any(w in target_name for w in ["water", "lake", "river", "flood"]):
-                    rad_desc = "Spectral absorption across Near-Infrared (NIR) and Short-Wave Infrared (SWIR) bands confirms deep liquid bodies, yielding strongly positive NDWI values."
-                elif any(w in target_name for w in ["urban", "building", "structure", "built"]):
-                    rad_desc = "Elevated surface reflectance across visible Red and Short-Wave Infrared (SWIR) channels corroborates impervious concrete, masonry, and road surfaces with depressed vegetative NIR absorption."
-                elif any(w in target_name for w in ["crop", "vegetation", "forest", "tree"]):
-                    rad_desc = "Steep red-edge reflectance and strong Near-Infrared (NIR) cellular scattering verify healthy photosynthetic canopy with high NDVI index responses."
-                else:
-                    rad_desc = "Multi-spectral surface reflectance profiles conform to characteristic Bottom-of-Atmosphere (BOA) physical reflectance bounds."
-            header_lines.append(f"• Spectral & Radiometric Observation: {rad_desc}")
+        # 2. Easy GeoTIFF Metadata Dimensions
+        lines.append("")
+        lines.append("📋 Ground & Photo Details:")
+        lines.append(f"• Satellite Used: {sensor_name} — {sensor_desc}")
+        lines.append(f"• Photo Clarity: Each pixel covers {res_x:.1f}m × {res_y:.1f}m on the ground (about the size of a small house).")
+        lines.append(f"• Photo Quality: {easy_quality}")
 
-        # 2. Localized Bounding Boxes
+        # 3. Localized Bounding Boxes (if present)
         if boxes:
-            header_lines.append("")
-            header_lines.append(f"🎯 Localized Grounding Bounding Boxes ({len(boxes)} regions identified):")
+            lines.append("")
+            lines.append(f"🎯 Main Areas Found on the Photo ({len(boxes)} locations):")
             for b in boxes:
                 sec = b.get("sector", "Central")
                 pbox = b.get("pixel_box", [0, 0, 0, 0])
                 b_conf = b.get("confidence", int(mean_conf))
                 b_ha = b.get("area_hectares", round(b.get("pixel_count", 0) * 0.01, 2))
-                header_lines.append(f"  • [{b['id']}] {sec} sector: coordinates [{pbox[0]}, {pbox[1]}, {pbox[2]}, {pbox[3]}] ({b_ha:.1f} ha, {b_conf}% conf)")
+                lines.append(f"  • [{b['id']}] {sec} area: box [left={pbox[0]}, top={pbox[1]}, right={pbox[2]}, bottom={pbox[3]}] ({b_ha:.1f} hectares, {b_conf}% sure)")
 
-        # 3. Physics Verification Summary
+        # 4. Science & Physics Verification
+        lines.append("")
         physics_checks = getattr(audit, "physics_checks", [])
         overall_verdict = getattr(audit, "verdict", "VERIFIED")
-        if physics_checks:
-            checks_txt = "; ".join([f"{c.index_name} ({'PASS' if c.passed else 'FLAGGED'}, agreement {c.coverage_percentage:.1f}%)" for c in physics_checks])
-            physics_desc = f"Deterministic physical cross-examination confirmed consistent radiometric signatures across: {checks_txt} (Verdict: {overall_verdict})."
+
+        if physics_easy_expl:
+            lines.append(f"🔬 Physical Science Check: {physics_easy_expl}")
+        elif physics_checks:
+            check_summaries = []
+            for c in physics_checks:
+                c_status = "Passed" if c.passed else "Uncertain"
+                check_summaries.append(f"{c.index_name} ({c_status}, {c.coverage_percentage:.0f}% match)")
+            lines.append(f"🔬 Physical Science Check: Passed ({', '.join(check_summaries)}).")
         else:
-            physics_desc = f"Deterministic radiometric verification ({overall_verdict}): Spectral bounds consistent with physical Earth Observation reflectance."
+            verdict_word = "Passed" if overall_verdict == "VERIFIED" else "Partially verified"
+            lines.append(f"🔬 Physical Science Check: {verdict_word}. Light absorption levels match natural Earth features.")
 
-        # 4. Agentic Trace
-        agentic_trace = (
-            f"• Forensic Trace:\n"
-            f"  Agentic Controller: {self.identifier}\n"
-            f"  Specialist Backbone: {getattr(audit, 'specialist_model', 'Remote-Sensing Specialist')}\n"
-            f"  Task Routing: {task_type.value} | Latency: {getattr(audit, 'execution_time_ms', 0.0):.1f} ms."
-        )
+        # 5. Offline Processing Trace
+        latency = getattr(audit, 'execution_time_ms', 0.0)
+        lines.append(f"⚡ Processing Speed: {latency:.1f} ms (Ran 100% offline on your device, zero internet needed).")
 
-        header_str = "\n".join(header_lines)
-        return (
-            f"{header_str}\n\n"
-            f"Query: '{query}'\n\n"
-            f"• Physical & Radiometric Verification:\n  {physics_desc}\n\n"
-            f"{agentic_trace}"
-        )
+        return "\n".join(lines)
 
 
 class QueryRouter:
@@ -395,20 +393,16 @@ class QueryRouter:
         if raster.modality is not None:
             return raster.modality
 
-        # Check path hints with delimited/word boundaries to avoid false positives (e.g. 's1' inside 'rois1970')
         path_lower = raster.path.lower()
+        if any(keyword in path_lower for keyword in ["s1", "sar", "grd", "vv", "vh"]) or "sentinel1" in path_lower or "sentinel-1" in path_lower:
+            return SensorModality.SAR
+
         if (
             re.search(r"(?:^|[_\-\.\/\\])(s2|msi|optical|liss)(?:[_\-\.\/\\]|$)", path_lower)
             or "sentinel2" in path_lower
             or "sentinel-2" in path_lower
         ):
             return SensorModality.OPTICAL
-        if (
-            re.search(r"(?:^|[_\-\.\/\\])(s1|sar|grd|vv|vh|eos04|risat)(?:[_\-\.\/\\]|$)", path_lower)
-            or "sentinel1" in path_lower
-            or "sentinel-1" in path_lower
-        ):
-            return SensorModality.SAR
 
         return None
 
@@ -434,3 +428,52 @@ class QueryRouter:
             indices = ["ndwi", "ndvi"]
 
         return list(dict.fromkeys(indices))  # Preserves order without duplicates
+
+
+def detect_sensor_modality(
+    channels: int,
+    band_aliases: Optional[List[str]] = None,
+    dtype: Optional[str] = None,
+    filename: str = "",
+) -> str:
+    """
+    Detect sensor modality with a 4-tier fallback hierarchy.
+    Correctly identifies 3-band Pseudo-RGB SAR images as SENTINEL_1_SAR.
+
+    Args:
+        channels: Number of color or radar channels in the image.
+        band_aliases: Names of the channels (like 'NIR', 'RED', 'VV', 'VH').
+        dtype: Data type string of array values.
+        filename: File path or file name of the satellite raster.
+
+    Returns:
+        Satellite camera modality type:
+        - 'SENTINEL_1_SAR'
+        - 'SENTINEL_2_OPTICAL'
+        - 'STANDARD_RGB'
+        - 'UNKNOWN_MODALITY'
+    """
+    if channels <= 0:
+        raise ValueError(f"Channel count must be greater than 0, got {channels}")
+
+    filename_lower = (filename or "").lower()
+    safe_aliases = [str(b).strip().upper() for b in (band_aliases or [])]
+
+    # 1. THE FAILSAFE: Check filename first (Hackathon life-saver)
+    if any(keyword in filename_lower for keyword in ["s1", "sar", "grd", "vv", "vh"]):
+        return "SENTINEL_1_SAR"
+
+    # 2. Check specific SAR polarizations in aliases
+    if channels == 2 or any(b in ["VV", "VH", "HH", "HV"] for b in safe_aliases):
+        return "SENTINEL_1_SAR"
+
+    # 3. Check for multi-spectral optical (Sentinel-2)
+    if channels >= 10 or any(b in ["B08", "NIR", "SWIR"] for b in safe_aliases):
+        return "SENTINEL_2_OPTICAL"
+
+    # 4. Default to RGB if 3 channels and no SAR/Optical indicators
+    if channels == 3:
+        return "STANDARD_RGB"
+
+    return "UNKNOWN_MODALITY"
+

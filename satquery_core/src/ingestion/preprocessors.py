@@ -286,9 +286,14 @@ class PreprocessorDispatcher:
             Calibrated GeoTIFFData ready for physics indexing and neural backbones.
         """
         if modality is None:
-            # Heuristic: Sentinel-1 / EOS-04 typically has 1 or 2 channels (VV, VH)
-            # Optical imagery typically has 3 (RGB), 4 (RGB-NIR), or 12+ channels
-            modality = "sar" if geotiff.count <= 2 else "optical"
+            # Failsafe: Check filename first (supports 3-band Pseudo-RGB SAR rasters)
+            fn_lower = str(geotiff.file_path or "").lower()
+            if any(k in fn_lower for k in ["s1", "sar", "grd", "vv", "vh"]):
+                modality = "sar"
+            else:
+                # Heuristic: Sentinel-1 / EOS-04 typically has 1 or 2 channels (VV, VH)
+                # Optical imagery typically has 3 (RGB), 4 (RGB-NIR), or 12+ channels
+                modality = "sar" if geotiff.count <= 2 else "optical"
 
         modality = modality.lower().strip()
         if modality == "sar":
@@ -297,3 +302,55 @@ class PreprocessorDispatcher:
             return self.optical.process_geotiff(geotiff)
         else:
             raise ValueError(f"Unsupported modality: '{modality}'. Expected 'optical' or 'sar'.")
+
+
+def create_valid_data_mask(
+    image_tensor: np.ndarray,
+    nodata_val: Optional[Union[int, float]] = None,
+) -> np.ndarray:
+    """
+    Find which parts of the satellite picture have real image data and which parts are empty.
+    This safely ignores dark slanted borders and missing satellite sensor data.
+
+    Args:
+        image_tensor: 3D satellite image data of shape (Channels, Height, Width) or 2D (Height, Width).
+        nodata_val: Number used by the satellite to mark empty/missing pixels (like 0 or -9999).
+
+    Returns:
+        2D True/False grid: True means real satellite picture, False means empty border or missing data.
+    """
+    if not isinstance(image_tensor, np.ndarray):
+        image_tensor = np.asarray(image_tensor)
+
+    if image_tensor.ndim == 2:
+        image_tensor = np.expand_dims(image_tensor, axis=0)
+    elif image_tensor.ndim != 3:
+        raise ValueError(
+            f"Expected 2D or 3D image array of shape (Channels, Height, Width), got {image_tensor.shape}"
+        )
+
+    channels, height, width = image_tensor.shape
+    if channels == 0 or height == 0 or width == 0:
+        return np.zeros((height, width), dtype=bool)
+
+    # 1. Dark empty borders where every color channel is zero
+    all_zero_mask = np.all(image_tensor == 0, axis=0)
+
+    # 2. Blank or damaged numbers (NaN / Infinite)
+    nan_inf_mask = np.any(np.isnan(image_tensor) | np.isinf(image_tensor), axis=0)
+
+    # 3. Known empty pixel value (NoData)
+    if nodata_val is not None:
+        if np.isnan(nodata_val):
+            nodata_mask = np.all(np.isnan(image_tensor), axis=0)
+        else:
+            nodata_mask = np.all(np.isclose(image_tensor, nodata_val, atol=1e-5), axis=0)
+    else:
+        nodata_mask = np.zeros((height, width), dtype=bool)
+
+    # Combine all empty areas
+    empty_areas = all_zero_mask | nan_inf_mask | nodata_mask
+
+    # True means real, valid image data
+    return ~empty_areas
+

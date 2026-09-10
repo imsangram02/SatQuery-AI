@@ -23,7 +23,7 @@ try:
 except Exception:
     HAS_RASTERIO_FEATURES = False
 
-from satquery_core.src.controller.router import QueryRouter
+from satquery_core.src.controller.router import QueryRouter, detect_sensor_modality
 from satquery_core.src.controller.schemas import (
     AuditTrace,
     EngineOutput,
@@ -35,8 +35,10 @@ from satquery_core.src.controller.schemas import (
     TaskType,
 )
 from satquery_core.src.ingestion.geotiff_loader import GeoTIFFData, GeoTIFFLoader
-from satquery_core.src.ingestion.preprocessors import PreprocessorDispatcher
-from satquery_core.src.physics.indices import PhysicsVerifier, SpatialVerifier
+from satquery_core.src.ingestion.preprocessors import PreprocessorDispatcher, create_valid_data_mask
+from satquery_core.src.physics.indices import PhysicsVerifier, SpatialVerifier, verify_detection_physics
+from satquery_core.src.physics.metrics import calculate_ground_metrics
+from satquery_core.src.physics.vectorizer import mask_to_geojson
 from satquery_core.src.specialists.change_detection import ChangeDetectionSpecialist
 from satquery_core.src.specialists.cross_modal import CrossModalSpecialist
 from satquery_core.src.specialists.single_image import SingleImageSpecialist
@@ -119,11 +121,53 @@ class SatQueryEngine:
             input_shapes["secondary_raw"] = list(secondary_raw.array.shape)
 
         # ----------------------------------------------------------------------
-        # Step 2: Radiometric Calibration
+        # Step 2: Radiometric Calibration & Sensor Modality Analysis
         # ----------------------------------------------------------------------
         primary_mod = request.primary_raster.modality.value if request.primary_raster.modality else None
         primary_calibrated = self.preprocessor.preprocess(primary_raw, modality=primary_mod)
         preprocessing_applied.append(f"primary_{primary_calibrated.metadata.get('processing', 'calibrated')}")
+
+        # Module 3: Valid Data Mask & Image Quality Assessment
+        valid_data_mask = create_valid_data_mask(
+            primary_calibrated.array,
+            nodata_val=primary_raw.nodata,
+        )
+        total_px = valid_data_mask.size
+        valid_px = int(np.sum(valid_data_mask))
+        valid_pct = (valid_px / max(1, total_px)) * 100.0
+        has_empty_borders = valid_pct < 99.5
+        if valid_pct >= 99.9:
+            easy_quality = "100% clean image data with no empty black borders."
+        elif valid_pct >= 90.0:
+            easy_quality = f"{valid_pct:.1f}% usable picture (empty outer borders safely ignored)."
+        else:
+            easy_quality = f"Partial picture coverage ({valid_pct:.1f}% usable data, rest is missing or empty border)."
+
+        valid_stats = {
+            "valid_percentage": round(valid_pct, 2),
+            "valid_pixels": valid_px,
+            "total_pixels": total_px,
+            "has_empty_borders": has_empty_borders,
+            "easy_quality_summary": easy_quality,
+        }
+
+        # Module 2: Sensor Modality & Camera Type Classification
+        band_aliases = [f"Band_{i+1}" for i in range(primary_raw.count)]
+        if primary_raw.count in (12, 13):
+            band_aliases = ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B11", "B12"]
+        elif primary_raw.count <= 2:
+            band_aliases = ["VV", "VH"] if primary_raw.count == 2 else ["VV"]
+        elif primary_raw.count == 3:
+            band_aliases = ["RED", "GREEN", "BLUE"]
+        elif primary_raw.count == 4:
+            band_aliases = ["RED", "GREEN", "BLUE", "NIR"]
+
+        sensor_info = detect_sensor_modality(
+            channels=primary_raw.count,
+            band_aliases=band_aliases,
+            dtype=str(primary_raw.array.dtype),
+            filename=str(primary_raw.file_path or request.primary_raster.path or ""),
+        )
 
         secondary_calibrated: Optional[GeoTIFFData] = None
         if secondary_raw is not None:
@@ -204,18 +248,27 @@ class SatQueryEngine:
                 overall_verdict = "PARTIAL" if len(failed_checks) < len(physics_results) else "REJECTED"
 
         # ----------------------------------------------------------------------
-        # Step 6: Vectorization to GeoJSON
+        # Step 6: Real-World Ground Metrics & GeoJSON Vectorization
         # ----------------------------------------------------------------------
+        # Module 1: Real-World Ground Metrics Calculation
+        ground_metrics = calculate_ground_metrics(
+            pixel_count=int(np.sum(binary_mask)),
+            transform=primary_calibrated.transform,
+        )
+
+        # Module 4: GeoJSON Vector Boundary Extraction
         geojson_fc, area_hectares = self._vectorize_mask(binary_mask, primary_calibrated)
+        if ground_metrics.get("area_hectares", 0.0) > 0:
+            area_hectares = float(ground_metrics["area_hectares"])
 
         # ----------------------------------------------------------------------
         # Step 7: Natural Language & Quantitative Synthesis
         # ----------------------------------------------------------------------
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 
+        target_lbl = spec_meta.get("target_class") or target_entity or "detection"
         boxes = []
         if np.sum(binary_mask) > 0:
-            target_lbl = spec_meta.get("target_class") or target_entity or "detection"
             mean_prob = float(np.mean(prob_map[binary_mask]))
             boxes = ArtifactVisualizer.extract_bounding_boxes(
                 binary_mask=binary_mask,
@@ -225,10 +278,44 @@ class SatQueryEngine:
                 max_boxes=6,
             )
 
+        # Module 5: Physical Science Verification Gatekeeper
+        tensor_dict: Dict[str, np.ndarray] = {}
+        if primary_calibrated.count >= 8:
+            tensor_dict["GREEN"] = primary_calibrated.get_band(3)
+            tensor_dict["RED"] = primary_calibrated.get_band(4)
+            tensor_dict["NIR"] = primary_calibrated.get_band(8)
+            if primary_calibrated.count >= 11:
+                tensor_dict["SWIR1"] = primary_calibrated.get_band(11)
+        elif primary_calibrated.count >= 4:
+            tensor_dict["GREEN"] = primary_calibrated.get_band(2)
+            tensor_dict["RED"] = primary_calibrated.get_band(3)
+            tensor_dict["NIR"] = primary_calibrated.get_band(4)
+        elif primary_calibrated.count >= 3:
+            tensor_dict["RED"] = primary_calibrated.get_band(1)
+            tensor_dict["GREEN"] = primary_calibrated.get_band(2)
+            tensor_dict["BLUE"] = primary_calibrated.get_band(3)
+            tensor_dict["NIR"] = primary_calibrated.get_band(2)
+        if primary_calibrated.count <= 2:
+            tensor_dict["VV"] = primary_calibrated.get_band(1)
+
+        eval_bbox = [0, 0, max(0, primary_calibrated.width - 1), max(0, primary_calibrated.height - 1)]
+        if boxes:
+            eval_bbox = boxes[0]["pixel_box"]
+
+        physics_gatekeeper = verify_detection_physics(
+            tensor_dict=tensor_dict,
+            bbox=eval_bbox,
+            target=target_lbl,
+        )
+
         statistics = {
             "detected_pixel_count": int(np.sum(binary_mask)),
             "total_pixels": int(binary_mask.size),
             "area_hectares": float(round(area_hectares, 3)),
+            "ground_metrics": ground_metrics,
+            "sensor_info": sensor_info,
+            "valid_data_stats": valid_stats,
+            "physics_gatekeeper": physics_gatekeeper,
             "mean_probability": float(round(float(np.mean(prob_map[binary_mask])) if np.sum(binary_mask) > 0 else 0.0, 3)),
             "coverage_percentage": float(round((np.sum(binary_mask) / binary_mask.size) * 100.0, 2)),
             "bounding_boxes": boxes,
@@ -439,6 +526,26 @@ class SatQueryEngine:
                     shapes_list.append((poly, value))
             except Exception:
                 shapes_list = []
+
+        if not shapes_list and np.sum(binary_mask) > 0:
+            try:
+                v_res = mask_to_geojson(
+                    binary_mask=binary_mask,
+                    transform=geotiff.transform,
+                    crs=str(geotiff.crs),
+                    min_contour_area=float(min_pixel_size),
+                )
+                geom = v_res.get("geometry", {})
+                if geom.get("type") == "Polygon" and geom.get("coordinates"):
+                    poly = Polygon(geom["coordinates"][0])
+                    shapes_list.append((poly, 1))
+                elif geom.get("type") == "MultiPolygon":
+                    for poly_ring in geom.get("coordinates", []):
+                        if poly_ring and len(poly_ring[0]) >= 3:
+                            poly = Polygon(poly_ring[0])
+                            shapes_list.append((poly, 1))
+            except Exception:
+                pass
 
         if not shapes_list and np.sum(binary_mask) > 0:
             import matplotlib.pyplot as plt

@@ -59,8 +59,8 @@ def upload_image_to_workspace(image_path: Union[str, Path], upload_dir: Path) ->
     dest_filename = f"upload_{timestamp}_{src_path.name}"
     dest_path = upload_dir / dest_filename
 
-    # If file is already inside upload_dir, reuse it
-    if src_path.parent == upload_dir:
+    # If file is already inside upload_dir or any subdirectory, reuse it
+    if src_path.parent == upload_dir or upload_dir in src_path.parents:
         return src_path
 
     shutil.copy2(src_path, dest_path)
@@ -68,19 +68,37 @@ def upload_image_to_workspace(image_path: Union[str, Path], upload_dir: Path) ->
 
 
 def display_results_in_cli(output: EngineOutput) -> None:
-    """Print streamlined, high-signal results, artifact generation status, and image explanation."""
+    """Print streamlined, high-signal results, artifact generation status, and image explanation in easy English."""
     stats = output.statistics
     audit = output.audit_trace
     artifacts = output.artifacts
 
     verdict_icons = {
-        "VERIFIED": "🟢 VERIFIED (Spectrally Grounded)",
-        "PARTIAL": "🟡 PARTIAL (Spectral Inconsistency Detected)",
-        "REJECTED": "🔴 REJECTED (Physics Sanity Check Failed)",
+        "VERIFIED": "🟢 VERIFIED (Real-World Science Check Passed)",
+        "PARTIAL": "🟡 PARTIAL (Partially Verified)",
+        "REJECTED": "🔴 REJECTED (Science Check Failed)",
     }
     verdict_text = verdict_icons.get(audit.verdict, f"⚪ {audit.verdict}")
     boxes = stats.get("bounding_boxes", [])
     target_class = str(stats.get("specialist_metadata", {}).get("target_class", "Target Feature")).replace("_", " ").title()
+
+    ground_m = stats.get("ground_metrics", {})
+    sensor_m = stats.get("sensor_info", {})
+    valid_m = stats.get("valid_data_stats", {})
+
+    easy_size = ground_m.get("easy_size_comparison", "")
+    res_x = ground_m.get("resolution_x_meters")
+    res_y = ground_m.get("resolution_y_meters")
+    if isinstance(sensor_m, str):
+        if "SENTINEL_2" in sensor_m:
+            easy_sensor = "Sentinel-2 Optical Satellite (Color + Infrared)"
+        elif "SENTINEL_1" in sensor_m or "SAR" in sensor_m:
+            easy_sensor = "Sentinel-1 Radar Satellite (Cloud-penetrating radar)"
+        else:
+            easy_sensor = sensor_m.replace("_", " ").title()
+    else:
+        easy_sensor = sensor_m.get("easy_name", "Satellite Camera")
+    easy_quality = valid_m.get("easy_quality_summary", "Clean satellite image with 100% usable data")
 
     # 1. Artifact Generation Status
     print("\n" + "═" * 82)
@@ -110,30 +128,31 @@ def display_results_in_cli(output: EngineOutput) -> None:
     else:
         print("  ⚠️  Artifact generation was disabled for this execution.")
 
-    # 2. Key Specifications & Quantitative Analytics
+    # 2. Key Ground Metrics & Easy Analytics
     print("\n" + "─" * 82)
-    print("  📊 SPECIFICATIONS & QUANTITATIVE ANALYTICS")
+    print("  📊 KEY SPECIFICATIONS & GROUND METRICS (EASY ENGLISH)")
     print("─" * 82)
-    print(f"  • Target Classification  : {target_class}")
-    print(f"  • Delineated Extent      : {stats.get('area_hectares', 0.0):,.2f} hectares ({stats.get('detected_pixel_count', 0):,} px)")
-    print(f"  • Scene Coverage Footprint: {stats.get('coverage_percentage', 0.0):.2f}% of satellite scene")
-    print(f"  • Mean Model Confidence  : {stats.get('mean_probability', 0.0) * 100.0:.1f}%")
-    print(f"  • Task Specialization    : {output.task_type.value}")
-    print(f"  • Specialist Backbone    : {audit.specialist_model}")
-    print(f"  • Physics Grounding      : {verdict_text}")
-    print(f"  • Inference & Reason Time: {audit.execution_time_ms:.1f} ms (100% Offline Edge)")
+    print(f"  • What Was Found         : {target_class}")
+    if easy_size:
+        print(f"  • Real-World Ground Size : {stats.get('area_hectares', 0.0):,.2f} hectares ({easy_size}, {stats.get('detected_pixel_count', 0):,} pixels)")
+    else:
+        print(f"  • Real-World Ground Size : {stats.get('area_hectares', 0.0):,.2f} hectares ({stats.get('detected_pixel_count', 0):,} pixels)")
+    if res_x and res_y:
+        print(f"  • Photo Clarity (Detail) : Each pixel covers {res_x:.1f}m × {res_y:.1f}m on the ground (about the size of a house)")
+    print(f"  • Satellite Used         : {easy_sensor}")
+    print(f"  • Picture Quality        : {easy_quality}")
+    print(f"  • Part of Photo Covered  : {stats.get('coverage_percentage', 0.0):.1f}% of total image")
+    print(f"  • AI Confidence          : {stats.get('mean_probability', 0.0) * 100.0:.1f}%")
+    print(f"  • Science Check (Physics): {verdict_text}")
+    print(f"  • Processing Speed       : {audit.execution_time_ms:.1f} ms (100% Offline Edge)")
 
     if boxes:
         sectors = ", ".join(sorted(list(set(b.get("sector", "Central") for b in boxes))))
-        print(f"  • Localized Core Targets : {len(boxes)} distinct regions ({sectors})")
+        print(f"  • Where It Is Found      : {len(boxes)} main locations ({sectors} areas)")
 
-    if audit.physics_checks:
-        checks_summary = ", ".join([f"{c.index_name} ({'PASS' if c.passed else 'FLAGGED'}, {c.coverage_percentage:.0f}% agrmt)" for c in audit.physics_checks])
-        print(f"  • Radiometric Checks     : {checks_summary}")
-
-    # 3. Comprehensive Natural Language Image Explanation & VQA Answer
+    # 3. Plain English Image Explanation & VQA Answer
     print("\n" + "─" * 82)
-    print("  💬 COMPREHENSIVE IMAGE EXPLANATION & VQA ANSWER")
+    print("  💬 PLAIN ENGLISH IMAGE EXPLANATION & QUERY ANSWER")
     print("─" * 82)
     for line in output.summary_text.splitlines():
         print(f"  {line}")
