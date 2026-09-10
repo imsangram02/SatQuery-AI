@@ -67,8 +67,16 @@ class OpticalPreprocessor:
         else:
             valid_mask = np.ones(data.shape, dtype=bool)
 
-        # Scale to surface reflectance
-        calibrated = data / self.scale_factor
+        # Scale to surface reflectance: adaptively detect 8-bit (PNG/JPG) vs 16-bit satellite DN
+        max_val = float(np.nanmax(data)) if data.size > 0 else 1.0
+        if max_val <= 1.0:
+            scale = 1.0
+        elif max_val <= 255.0:
+            scale = 255.0  # Standard 8-bit visual RGB (PNG, JPEG)
+        else:
+            scale = self.scale_factor  # Multi-spectral satellite DN (Sentinel-2 L2A / Landsat)
+
+        calibrated = data / scale
 
         # Atmospheric over-correction or shadow noise can yield negative values; clamp safely
         calibrated = np.clip(calibrated, self.clamp_min, self.clamp_max)
@@ -156,12 +164,16 @@ class SARPreprocessor:
             Calibrated float32 array in decibels [clamp_min_db, clamp_max_db].
         """
         data = array.astype(np.float32)
+        # Normalize unscaled integer DN to normalized amplitude if needed (e.g. 16-bit DN / 10000)
+        if np.max(data) > 10.0:
+            data = data / 10000.0
 
         # Compute linear power intensity
         if self.is_amplitude:
             intensity = np.square(data)
         else:
             intensity = np.maximum(data, 0.0)
+
 
         # Optional spatial speckle filtering in the linear intensity domain
         if self.filter_speckle and intensity.shape[-1] >= self.filter_window_size:

@@ -5,19 +5,29 @@ Ingestion -> Radiometric Calibration -> Intent Routing -> Specialist Neural Infe
 Deterministic Physics Verification -> RFC 7946 GeoJSON Vectorization & Natural Language Synthesis.
 """
 
+import json
+import os
+from pathlib import Path
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
+import uuid
 
 import numpy as np
-import rasterio
-import rasterio.features
-from shapely.geometry import mapping, shape
+from shapely.geometry import mapping, shape, Polygon
 from shapely.ops import unary_union
+
+try:
+    import rasterio
+    import rasterio.features
+    HAS_RASTERIO_FEATURES = True
+except Exception:
+    HAS_RASTERIO_FEATURES = False
 
 from satquery_core.src.controller.router import QueryRouter
 from satquery_core.src.controller.schemas import (
     AuditTrace,
     EngineOutput,
+    OutputArtifacts,
     PhysicsVerificationResult,
     QueryRequest,
     RoutingDecision,
@@ -30,6 +40,9 @@ from satquery_core.src.physics.indices import PhysicsVerifier, SpatialVerifier
 from satquery_core.src.specialists.change_detection import ChangeDetectionSpecialist
 from satquery_core.src.specialists.cross_modal import CrossModalSpecialist
 from satquery_core.src.specialists.single_image import SingleImageSpecialist
+from satquery_core.src.export.visualizer import ArtifactVisualizer
+from satquery_core.src.export.report_generator import ReportGenerator
+
 
 
 class SatQueryEngine:
@@ -66,16 +79,23 @@ class SatQueryEngine:
                 raise ValueError(f"Unknown specialist model: '{specialist_name}'")
         return self._specialists[specialist_name]
 
-    def execute_query(self, request: QueryRequest) -> EngineOutput:
+    def execute_query(
+        self,
+        request: QueryRequest,
+        save_artifacts: bool = True,
+        output_dir: Optional[Union[str, Path]] = None,
+    ) -> EngineOutput:
         """
         Execute an end-to-end analytical query across input GeoTIFF rasters.
 
         Args:
             request: Validated QueryRequest instance.
+            save_artifacts: If True, renders and saves mask, heatmap, overlay images, GeoJSON, and reports.
+            output_dir: Base directory for storing outputs (defaults to data/outputs).
 
         Returns:
             EngineOutput containing natural language summary, GeoJSON features,
-            quantitative statistics, and complete diagnostic audit trace.
+            quantitative statistics, diagnostic audit trace, and saved output artifact paths.
         """
         start_time = time.perf_counter()
         preprocessing_applied: List[str] = []
@@ -85,7 +105,7 @@ class SatQueryEngine:
         # Step 1: Ingestion
         # ----------------------------------------------------------------------
         primary_raw = self.loader.load(
-            file_path=request.primary_raster.path,
+            request.primary_raster.path,
             bands=request.primary_raster.band_selection,
         )
         input_shapes["primary_raw"] = list(primary_raw.array.shape)
@@ -93,7 +113,7 @@ class SatQueryEngine:
         secondary_raw: Optional[GeoTIFFData] = None
         if request.secondary_raster is not None:
             secondary_raw = self.loader.load(
-                file_path=request.secondary_raster.path,
+                request.secondary_raster.path,
                 bands=request.secondary_raster.band_selection,
             )
             input_shapes["secondary_raw"] = list(secondary_raw.array.shape)
@@ -206,6 +226,100 @@ class SatQueryEngine:
             audit=audit_trace,
         )
 
+        # ----------------------------------------------------------------------
+        # Step 8: Visual Artifact & Analytical Report Persistence
+        # ----------------------------------------------------------------------
+        artifacts: Optional[OutputArtifacts] = None
+
+        if save_artifacts:
+            base_out = Path(output_dir or "data/outputs").resolve()
+            masks_dir = base_out / "masks"
+            heatmaps_dir = base_out / "heatmaps"
+            overlays_dir = base_out / "overlays"
+            geojson_dir = base_out / "geojson"
+            reports_dir = base_out / "reports"
+
+            for d in [masks_dir, heatmaps_dir, overlays_dir, geojson_dir, reports_dir]:
+                d.mkdir(parents=True, exist_ok=True)
+
+            timestamp_str = int(time.time())
+            file_prefix = f"pred_{audit_trace.trace_id[:8]}_{timestamp_str}"
+            target_class_str = spec_meta.get("target_class", "target")
+
+            # 1. Save Binary Mask Image
+            mask_path = ArtifactVisualizer.save_mask(
+                binary_mask=binary_mask,
+                output_path=masks_dir / f"{file_prefix}_mask.png",
+            )
+
+            # 2. Save Colorized Probability Heatmap
+            heatmap_path = ArtifactVisualizer.save_heatmap(
+                prob_map=prob_map,
+                output_path=heatmaps_dir / f"{file_prefix}_heatmap.png",
+                title=f"Probability Heatmap: {target_class_str.title()} ({statistics['mean_probability']*100:.1f}%)",
+            )
+
+            # 3. Save Visual Evidence Overlay
+            overlay_path = ArtifactVisualizer.save_overlay(
+                primary_geotiff=primary_raw,
+                binary_mask=binary_mask,
+                prob_map=prob_map,
+                output_path=overlays_dir / f"{file_prefix}_overlay.png",
+                label_text=target_class_str,
+                confidence=statistics["mean_probability"],
+                area_ha=statistics["area_hectares"],
+                coverage_pct=statistics["coverage_percentage"],
+            )
+
+            # 4. Save Vector RFC 7946 GeoJSON
+            geojson_path = geojson_dir / f"{file_prefix}_vectors.geojson"
+            with open(geojson_path, "w", encoding="utf-8") as f:
+                json.dump(geojson_fc, f, indent=2)
+
+            # 5. Build Comprehensive Report Data
+            report_data = {
+                "metadata": {
+                    "report_id": f"SATQUERY-{audit_trace.trace_id[:8].upper()}",
+                    "timestamp": audit_trace.timestamp,
+                    "crs": str(primary_calibrated.crs),
+                    "bounds": list(primary_calibrated.bounds),
+                },
+                "query_text": request.query_text,
+                "task_type": routing.task_type.value,
+                "summary_text": summary_text,
+                "statistics": statistics,
+                "audit_trace": audit_trace.model_dump(),
+                "artifacts": {
+                    "input_image_path": str(Path(request.primary_raster.path).resolve()),
+                    "secondary_image_path": str(Path(request.secondary_raster.path).resolve()) if request.secondary_raster else None,
+                    "mask_image_path": str(mask_path),
+                    "heatmap_image_path": str(heatmap_path),
+                    "overlay_image_path": str(overlay_path),
+                    "geojson_path": str(geojson_path),
+                },
+            }
+
+            # 6. Save JSON & Markdown Reports
+            rep_json_path = ReportGenerator.save_json_report(
+                report_data=report_data,
+                output_path=reports_dir / f"{file_prefix}_report.json",
+            )
+            rep_md_path = ReportGenerator.save_markdown_report(
+                report_data=report_data,
+                output_path=reports_dir / f"{file_prefix}_report.md",
+            )
+
+            artifacts = OutputArtifacts(
+                input_image_path=report_data["artifacts"]["input_image_path"],
+                secondary_image_path=report_data["artifacts"]["secondary_image_path"],
+                mask_image_path=str(mask_path),
+                heatmap_image_path=str(heatmap_path),
+                overlay_image_path=str(overlay_path),
+                geojson_path=str(geojson_path),
+                report_json_path=str(rep_json_path),
+                report_markdown_path=str(rep_md_path),
+            )
+
         return EngineOutput(
             query_text=request.query_text,
             task_type=routing.task_type,
@@ -213,7 +327,9 @@ class SatQueryEngine:
             geojson=geojson_fc,
             statistics=statistics,
             audit_trace=audit_trace,
+            artifacts=artifacts,
         )
+
 
     def _run_physics_checks(
         self,
@@ -264,15 +380,37 @@ class SatQueryEngine:
         pixel_height = abs(geotiff.transform.e)
         pixel_area = pixel_width * pixel_height
 
-        # Extract vector polygons using rasterio
-        shapes_gen = rasterio.features.shapes(
-            mask_uint8,
-            mask=(mask_uint8 == 1),
-            transform=geotiff.transform,
-        )
+        shapes_list = []
+        if HAS_RASTERIO_FEATURES:
+            try:
+                shapes_gen = rasterio.features.shapes(
+                    mask_uint8,
+                    mask=(mask_uint8 == 1),
+                    transform=geotiff.transform,
+                )
+                for geom_dict, value in shapes_gen:
+                    poly = shape(geom_dict)
+                    shapes_list.append((poly, value))
+            except Exception:
+                shapes_list = []
 
-        for geom_dict, value in shapes_gen:
-            poly = shape(geom_dict)
+        if not shapes_list and np.sum(binary_mask) > 0:
+            import matplotlib.pyplot as plt
+            fig = plt.figure()
+            try:
+                cs = plt.contour(mask_uint8.astype(float), levels=[0.5])
+                for path in cs.get_paths():
+                    for poly_pts in path.to_polygons():
+                        if len(poly_pts) >= 3:
+                            spatial_pts = [geotiff.transform * (pt[0], pt[1]) for pt in poly_pts]
+                            poly = Polygon(spatial_pts)
+                            shapes_list.append((poly, 1))
+            except Exception:
+                pass
+            finally:
+                plt.close(fig)
+
+        for poly, value in shapes_list:
             # Filter negligible single-pixel speckle noise
             if poly.area < (min_pixel_size * pixel_area):
                 continue
@@ -287,6 +425,7 @@ class SatQueryEngine:
                     "area_hectares": float(round(poly.area / 10000.0, 4)),
                 },
             })
+
 
         feature_collection = {
             "type": "FeatureCollection",
