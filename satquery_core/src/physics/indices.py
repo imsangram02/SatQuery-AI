@@ -242,6 +242,57 @@ class PhysicsVerifier:
             discrepancy_note=note,
         )
 
+    def verify_sar_urban(
+        self,
+        predicted_mask: np.ndarray,
+        vv_db: np.ndarray,
+        min_vv_db: float = -15.0,
+        min_agreement_ratio: float = 0.60,
+    ) -> PhysicsVerificationResult:
+        """
+        Validate SAR built-up / structural detection using corner reflector double-bounce.
+        Urban structures and settlements scatter microwave pulses strongly, yielding elevated backscatter (VV >= -15 dB).
+        """
+        mask_bool = predicted_mask.astype(bool)
+        total_pred_pixels = int(np.sum(mask_bool))
+
+        if total_pred_pixels == 0:
+            return PhysicsVerificationResult(
+                index_name="SAR_Urban_dB",
+                passed=True,
+                coverage_percentage=100.0,
+                mean_value=0.0,
+                min_value=0.0,
+                max_value=0.0,
+                discrepancy_note="Empty detection footprint.",
+            )
+
+        sampled_vv = vv_db[mask_bool]
+        mean_val = float(np.mean(sampled_vv))
+        min_val = float(np.min(sampled_vv))
+        max_val = float(np.max(sampled_vv))
+
+        valid_count = int(np.sum(sampled_vv >= min_vv_db))
+        agreement = (valid_count / total_pred_pixels) * 100.0
+        passed = (agreement >= (min_agreement_ratio * 100.0))
+
+        note = None
+        if not passed:
+            note = (
+                f"SAR urban backscatter mismatch: only {agreement:.1f}% of pixels exceed "
+                f"double-bounce threshold {min_vv_db} dB (Mean VV: {mean_val:.2f} dB)."
+            )
+
+        return PhysicsVerificationResult(
+            index_name="SAR_Urban_dB",
+            passed=passed,
+            coverage_percentage=float(round(agreement, 2)),
+            mean_value=float(round(mean_val, 4)),
+            min_value=float(round(min_val, 4)),
+            max_value=float(round(max_val, 4)),
+            discrepancy_note=note,
+        )
+
 
 class SpatialVerifier:
     """

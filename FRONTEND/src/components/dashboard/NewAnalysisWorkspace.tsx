@@ -114,6 +114,16 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
         formData.append('image_path', 'data/inputs/samples/sentinel2_godavari_pre.tif');
       }
 
+      if (images.length > 1) {
+        const secondaryFile = images[1]?.fileObject;
+        const secondaryServerPath = images[1]?.serverPath || images[1]?.name;
+        if (secondaryFile) {
+          formData.append('secondary_file', secondaryFile);
+        } else if (secondaryServerPath) {
+          formData.append('secondary_image_path', secondaryServerPath);
+        }
+      }
+
       const res = await fetch('http://127.0.0.1:8000/api/analyze', {
         method: 'POST',
         body: formData,
@@ -160,13 +170,18 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
           evidence: {
             type: realApiResult.task_type,
             imageA: {
-              visual: images[0]?.previewUrl || activeScenario.result.evidence.imageA?.visual || 'linear-gradient(135deg, #1e293b, #334155)',
-              label: images[0]?.name || 'Input Raster'
+              visual: (realApiResult.primary_preview_url ? `http://127.0.0.1:8000${realApiResult.primary_preview_url}` : undefined) || images[0]?.previewUrl || activeScenario.result.evidence.imageA?.visual || 'linear-gradient(135deg, #1e293b, #334155)',
+              label: images[0]?.name || 'Primary Input Raster'
             },
+            imageB: (images.length > 1 || realApiResult.secondary_preview_url) ? {
+              visual: (realApiResult.secondary_preview_url ? `http://127.0.0.1:8000${realApiResult.secondary_preview_url}` : undefined) || images[1]?.previewUrl || activeScenario.result.evidence.imageB?.visual || 'linear-gradient(135deg, #020617, #1e293b)',
+              label: images[1]?.name || 'Secondary Raster (T2 / SAR)'
+            } : activeScenario.result.evidence.imageB,
             changeMap: overlayUrl ? {
               visual: overlayUrl,
               label: `Actual Neural Detection Overlay (${stats.area_hectares.toFixed(1)} ha)`
             } : activeScenario.result.evidence.changeMap,
+            boundingBoxes: (realApiResult.bounding_boxes && realApiResult.bounding_boxes.length > 0) ? realApiResult.bounding_boxes : stats.bounding_boxes,
             stats: [
               { label: 'Surface Extent', value: `${stats.area_hectares.toFixed(2)} ha` },
               { label: 'Pixel Count', value: `${stats.detected_pixel_count.toLocaleString()} px` },

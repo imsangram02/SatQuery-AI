@@ -145,15 +145,16 @@ class SatQueryEngine:
         binary_mask: np.ndarray
         spec_meta: Dict[str, Any]
 
+        target_entity = self._extract_target_entity(request.query_text, primary_calibrated)
+
         if routing.task_type == TaskType.SINGLE_IMAGE_OPTICAL or routing.task_type == TaskType.SINGLE_IMAGE_SAR:
             prob_map, binary_mask, spec_meta = specialist.infer(
                 geotiff=primary_calibrated,
-                target_class_name=self._extract_target_entity(request.query_text),
+                target_class_name=target_entity,
                 confidence_threshold=request.confidence_threshold,
             )
         elif routing.task_type == TaskType.CHANGE_DETECTION:
             if secondary_calibrated is None:
-                # If secondary raster was not provided, compare primary with itself
                 secondary_calibrated = primary_calibrated
 
             prob_map, binary_mask, spec_meta = specialist.infer(
@@ -161,11 +162,22 @@ class SatQueryEngine:
                 post_geotiff=secondary_calibrated,
                 confidence_threshold=request.confidence_threshold,
             )
+
+            # Check if this is a Categorical CDVQA query
+            cdvqa_result = self._evaluate_cdvqa_query(
+                query_text=request.query_text,
+                pre_geotiff=primary_calibrated,
+                post_geotiff=secondary_calibrated,
+                change_mask=binary_mask,
+            )
+            if cdvqa_result:
+                spec_meta.update(cdvqa_result)
+
         elif routing.task_type == TaskType.CROSS_MODAL_FUSION:
             prob_map, binary_mask, spec_meta = specialist.infer(
                 optical_geotiff=primary_calibrated,
                 sar_geotiff=secondary_calibrated,
-                target_class_name=self._extract_target_entity(request.query_text),
+                target_class_name=target_entity,
                 confidence_threshold=request.confidence_threshold,
             )
         else:
@@ -183,6 +195,7 @@ class SatQueryEngine:
                 binary_mask=binary_mask,
                 primary=primary_calibrated,
                 secondary=secondary_calibrated,
+                target_class=spec_meta.get("target_class"),
             )
 
             # Check if any physics check failed
@@ -200,12 +213,25 @@ class SatQueryEngine:
         # ----------------------------------------------------------------------
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
 
+        boxes = []
+        if np.sum(binary_mask) > 0:
+            target_lbl = spec_meta.get("target_class") or target_entity or "detection"
+            mean_prob = float(np.mean(prob_map[binary_mask]))
+            boxes = ArtifactVisualizer.extract_bounding_boxes(
+                binary_mask=binary_mask,
+                label_text=target_lbl,
+                confidence=mean_prob,
+                prob_map=prob_map,
+                max_boxes=6,
+            )
+
         statistics = {
             "detected_pixel_count": int(np.sum(binary_mask)),
             "total_pixels": int(binary_mask.size),
             "area_hectares": float(round(area_hectares, 3)),
             "mean_probability": float(round(float(np.mean(prob_map[binary_mask])) if np.sum(binary_mask) > 0 else 0.0, 3)),
             "coverage_percentage": float(round((np.sum(binary_mask) / binary_mask.size) * 100.0, 2)),
+            "bounding_boxes": boxes,
             "specialist_metadata": spec_meta,
         }
 
@@ -343,32 +369,43 @@ class SatQueryEngine:
         binary_mask: np.ndarray,
         primary: GeoTIFFData,
         secondary: Optional[GeoTIFFData],
+        target_class: Optional[str] = None,
     ) -> List[PhysicsVerificationResult]:
-        """Execute physical sanity checks matched to the routed task intent."""
+        """Execute physical sanity checks matched to the routed task intent and target class."""
         results: List[PhysicsVerificationResult] = []
 
         # Target raster for optical checks (for change detection, check post-event state in secondary)
         opt_target = secondary if (routing.task_type == TaskType.CHANGE_DETECTION and secondary is not None and secondary.count >= 8) else primary
 
+        t_class = (target_class or "").lower()
+
         # Check for Optical Water (NDWI)
-        if "ndwi" in routing.required_physics_indices and opt_target.count >= 8:
-            green = opt_target.get_band(3)   # Sentinel-2 B03
-            nir = opt_target.get_band(8)     # Sentinel-2 B08
-            res = self.physics_verifier.verify_optical_water(binary_mask, green=green, nir=nir)
-            results.append(res)
+        if ("ndwi" in routing.required_physics_indices or "water" in t_class) and opt_target.count >= 8:
+            if not t_class or any(k in t_class for k in ["water", "flood", "lake", "river"]):
+                green = opt_target.get_band(3)   # Sentinel-2 B03
+                nir = opt_target.get_band(8)     # Sentinel-2 B08
+                res = self.physics_verifier.verify_optical_water(binary_mask, green=green, nir=nir)
+                results.append(res)
 
         # Check for Optical Vegetation (NDVI)
-        if "ndvi" in routing.required_physics_indices and opt_target.count >= 8:
-            red = opt_target.get_band(4)     # Sentinel-2 B04
-            nir = opt_target.get_band(8)     # Sentinel-2 B08
-            res = self.physics_verifier.verify_optical_vegetation(binary_mask, nir=nir, red=red)
-            results.append(res)
+        if ("ndvi" in routing.required_physics_indices or any(k in t_class for k in ["vegetation", "crop", "forest"])) and opt_target.count >= 8:
+            if not t_class or any(k in t_class for k in ["vegetation", "crop", "forest", "tree", "plant"]):
+                red = opt_target.get_band(4)     # Sentinel-2 B04
+                nir = opt_target.get_band(8)     # Sentinel-2 B08
+                res = self.physics_verifier.verify_optical_vegetation(binary_mask, nir=nir, red=red)
+                results.append(res)
 
-        # Check for SAR Water / Specular Backscatter
-        if "sar_water_threshold_db" in routing.required_physics_indices:
-            sar_target = primary if primary.count <= 2 else secondary
-            if sar_target is not None and sar_target.count >= 1:
-                vv_db = sar_target.get_band(1)
+        # Check for SAR Urban (Double-Bounce) or SAR Water (Specular Backscatter)
+        sar_target = primary if primary.count <= 2 else secondary
+        if sar_target is not None and sar_target.count >= 1:
+            vv_db = sar_target.get_band(1)
+            is_urban_target = any(k in t_class for k in ["built", "urban", "settlement", "structure", "building"])
+            is_water_target = any(k in t_class for k in ["water", "flood", "lake", "river"])
+
+            if is_urban_target or ("sar_urban_threshold_db" in routing.required_physics_indices and not is_water_target):
+                res = self.physics_verifier.verify_sar_urban(binary_mask, vv_db=vv_db)
+                results.append(res)
+            elif is_water_target or "sar_water_threshold_db" in routing.required_physics_indices:
                 res = self.physics_verifier.verify_sar_water(binary_mask, vv_db=vv_db)
                 results.append(res)
 
@@ -458,16 +495,143 @@ class SatQueryEngine:
 
         return feature_collection, area_hectares
 
-    def _extract_target_entity(self, query: str) -> Optional[str]:
-        """Extract primary target entity keyword from natural language query."""
+    def _extract_target_entity(self, query: str, geotiff: Optional[GeoTIFFData] = None) -> Optional[str]:
+        """Extract primary target entity keyword from natural language query with scene context."""
         q = query.lower()
-        if any(w in q for w in ["water", "lake", "river", "flood", "inundation"]):
-            return "water"
-        if any(w in q for w in ["crop", "agriculture", "vegetation", "forest", "canopy"]):
-            return "cropland"
-        if any(w in q for w in ["urban", "building", "city", "built-up", "infrastructure"]):
+
+        # Scene description / captioning intent
+        if any(w in q for w in ["describe", "caption", "major objects", "land-cover and", "land cover and", "visible in this image", "summarize the scene"]):
+            return "describe_land_cover"
+
+        # Check for target categories
+        has_water = any(w in q for w in ["water", "lake", "river", "flood", "inundation"])
+        has_urban = any(w in q for w in ["urban", "building", "city", "built-up", "structure", "infrastructure", "settlement"])
+        has_veg = any(w in q for w in ["crop", "agriculture", "vegetation", "forest", "canopy", "tree"])
+
+        if has_water and has_urban:
+            # Compound query: disambiguate based on scene contents
+            if geotiff is not None:
+                if geotiff.count >= 8:
+                    green = geotiff.get_band(3)
+                    nir = geotiff.get_band(8)
+                    ndwi = (green - nir) / (green + nir + 1e-6)
+                    if float(np.mean(ndwi > 0.05)) > 0.15:
+                        return "water"
+                    return "urban"
+                elif geotiff.count >= 3:
+                    r, g, b = geotiff.get_band(1), geotiff.get_band(2), geotiff.get_band(3)
+                    ndwi_v = (b - r) / (b + r + 1e-6)
+                    if float(np.mean(ndwi_v > 0.20)) > 0.20:
+                        return "water"
+                    return "urban"
             return "urban"
+
+        if has_urban:
+            return "urban"
+        if has_water:
+            return "water"
+        if has_veg:
+            return "cropland"
+
         return None
+
+    def _evaluate_cdvqa_query(
+        self,
+        query_text: str,
+        pre_geotiff: GeoTIFFData,
+        post_geotiff: GeoTIFFData,
+        change_mask: np.ndarray,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Categorical CDVQA Fine-Grained Answering Engine.
+        Evaluates categorical multitemporal questions such as:
+        'Has the built-up area increased, decreased, or remained unchanged?'
+        """
+        q = query_text.lower()
+        is_categorical = any(k in q for k in [
+            "increased", "decreased", "unchanged", "increase or decrease",
+            "growth or reduction", "remained unchanged", "expanded or reduced",
+            "has the built-up", "has the water", "has the vegetation",
+            "has built-up", "did the built-up", "did water increase"
+        ])
+        if not is_categorical:
+            return None
+
+        # Determine target land-cover class
+        target_class = "built-up"
+        if any(w in q for w in ["water", "flood", "lake", "river", "inundat"]):
+            target_class = "water"
+        elif any(w in q for w in ["vegetation", "crop", "forest", "tree", "agriculture"]):
+            target_class = "vegetation"
+        elif any(w in q for w in ["built", "urban", "building", "settlement", "structure"]):
+            target_class = "built-up"
+
+        # Compute pre (T1) and post (T2) class footprints
+        if target_class == "water":
+            if pre_geotiff.count >= 8 and post_geotiff.count >= 8:
+                ndwi1 = (pre_geotiff.get_band(3) - pre_geotiff.get_band(8)) / (pre_geotiff.get_band(3) + pre_geotiff.get_band(8) + 1e-6)
+                ndwi2 = (post_geotiff.get_band(3) - post_geotiff.get_band(8)) / (post_geotiff.get_band(3) + post_geotiff.get_band(8) + 1e-6)
+                m1, m2 = ndwi1 > 0.05, ndwi2 > 0.05
+            elif pre_geotiff.count >= 4 and post_geotiff.count >= 4:
+                ndwi1 = (pre_geotiff.get_band(2) - pre_geotiff.get_band(4)) / (pre_geotiff.get_band(2) + pre_geotiff.get_band(4) + 1e-6)
+                ndwi2 = (post_geotiff.get_band(2) - post_geotiff.get_band(4)) / (post_geotiff.get_band(2) + post_geotiff.get_band(4) + 1e-6)
+                m1, m2 = ndwi1 > 0.05, ndwi2 > 0.05
+            elif pre_geotiff.count >= 3 and post_geotiff.count >= 3:
+                r1, g1, b1 = pre_geotiff.get_band(1), pre_geotiff.get_band(2), pre_geotiff.get_band(3)
+                r2, g2, b2 = post_geotiff.get_band(1), post_geotiff.get_band(2), post_geotiff.get_band(3)
+                ndwi_v1 = np.maximum((g1 - r1) / (g1 + r1 + 1e-6), (b1 - r1) / (b1 + r1 + 1e-6))
+                ndwi_v2 = np.maximum((g2 - r2) / (g2 + r2 + 1e-6), (b2 - r2) / (b2 + r2 + 1e-6))
+                m1, m2 = ndwi_v1 > 0.05, ndwi_v2 > 0.05
+            else:
+                m1 = pre_geotiff.get_band(1) < 0.15
+                m2 = post_geotiff.get_band(1) < 0.15
+        elif target_class == "vegetation":
+            if pre_geotiff.count >= 8 and post_geotiff.count >= 8:
+                ndvi1 = (pre_geotiff.get_band(8) - pre_geotiff.get_band(4)) / (pre_geotiff.get_band(8) + pre_geotiff.get_band(4) + 1e-6)
+                ndvi2 = (post_geotiff.get_band(8) - post_geotiff.get_band(4)) / (post_geotiff.get_band(8) + post_geotiff.get_band(4) + 1e-6)
+                m1, m2 = ndvi1 > 0.35, ndvi2 > 0.35
+            elif pre_geotiff.count >= 4 and post_geotiff.count >= 4:
+                ndvi1 = (pre_geotiff.get_band(4) - pre_geotiff.get_band(3)) / (pre_geotiff.get_band(4) + pre_geotiff.get_band(3) + 1e-6)
+                ndvi2 = (post_geotiff.get_band(4) - post_geotiff.get_band(3)) / (post_geotiff.get_band(4) + post_geotiff.get_band(3) + 1e-6)
+                m1, m2 = ndvi1 > 0.35, ndvi2 > 0.35
+            else:
+                m1 = (pre_geotiff.get_band(2) - pre_geotiff.get_band(1)) / (pre_geotiff.get_band(2) + pre_geotiff.get_band(1) + 1e-6) > 0.15
+                m2 = (post_geotiff.get_band(2) - post_geotiff.get_band(1)) / (post_geotiff.get_band(2) + post_geotiff.get_band(1) + 1e-6) > 0.15
+        else:  # built-up
+            if pre_geotiff.count >= 3 and post_geotiff.count >= 3:
+                b1 = (pre_geotiff.get_band(1).astype(np.float32) + pre_geotiff.get_band(2).astype(np.float32) + pre_geotiff.get_band(3).astype(np.float32)) / 3.0
+                b2 = (post_geotiff.get_band(1).astype(np.float32) + post_geotiff.get_band(2).astype(np.float32) + post_geotiff.get_band(3).astype(np.float32)) / 3.0
+                thresh = 0.22 if np.max(b1) <= 1.0 else 55.0
+                m1, m2 = b1 > thresh, b2 > thresh
+            else:
+                m1 = np.zeros_like(change_mask, dtype=bool)
+                m2 = change_mask
+
+        p1, p2 = int(np.sum(m1)), int(np.sum(m2))
+        pixel_ha = 0.01  # standard 10m pixel = 0.01 ha (100 sqm)
+        t1_ha = p1 * pixel_ha
+        t2_ha = p2 * pixel_ha
+        delta_ha = t2_ha - t1_ha
+        delta_pct = ((p2 - p1) / max(1, p1)) * 100.0
+
+        if delta_pct > 2.0:
+            verdict = "Increased"
+        elif delta_pct < -2.0:
+            verdict = "Decreased"
+        else:
+            verdict = "Remained Unchanged"
+
+        return {
+            "is_cdvqa": True,
+            "cdvqa_categorical_verdict": verdict,
+            "cdvqa_target_class": target_class,
+            "cdvqa_t1_pixels": p1,
+            "cdvqa_t2_pixels": p2,
+            "cdvqa_t1_ha": round(t1_ha, 2),
+            "cdvqa_t2_ha": round(t2_ha, 2),
+            "cdvqa_delta_ha": round(delta_ha, 2),
+            "cdvqa_delta_pct": round(delta_pct, 1),
+        }
 
     def _synthesize_summary(
         self,
@@ -476,94 +640,11 @@ class SatQueryEngine:
         statistics: Dict[str, Any],
         audit: AuditTrace,
     ) -> str:
-        """Formulate a comprehensive, verifiable natural language reasoning summary and analytical explanation."""
-        target_name = statistics.get("specialist_metadata", {}).get("target_class", "target feature")
-        area_ha = statistics["area_hectares"]
-        cov_pct = statistics["coverage_percentage"]
-        pixel_count = statistics["detected_pixel_count"]
-        mean_conf = statistics.get("mean_probability", 0.0) * 100.0
-
-        # Detailed contextual narrative based on detected class and observations
-        if routing.task_type == TaskType.CHANGE_DETECTION:
-            scene_desc = (
-                f"Bi-temporal satellite observation analysis evaluated surface reflectance deltas between "
-                f"the baseline (pre-event) and post-event acquisitions. The Siamese ResNet-50 deep feature differential "
-                f"extractor, combined with radiometric change vector analysis, detected {pixel_count:,} pixels "
-                f"({area_ha:,.2f} hectares, {cov_pct:.1f}% scene coverage) exhibiting significant land-cover transformation "
-                f"with a mean posterior change confidence of {mean_conf:.1f}%."
-            )
-            morphology = (
-                f"Spatial change contours reveal concentrated expansion along the central hydrologic boundary, "
-                f"delineating newly inundated or altered land parcels with continuous perimeter margins."
-            )
-        elif routing.task_type == TaskType.CROSS_MODAL_FUSION:
-            scene_desc = (
-                f"Multimodal cross-sensor fusion integrated 12-band Sentinel-2 Bottom-of-Atmosphere optical reflectance "
-                f"with 2-channel Sentinel-1 C-band synthetic aperture radar (VV/VH backscatter). The joint 14-channel "
-                f"Vision Transformer (ViT-Base) successfully resolved {pixel_count:,} pixels ({area_ha:,.2f} hectares, "
-                f"{cov_pct:.1f}% scene footprint) classified as '{target_name.replace('_', ' ')}' with an average "
-                f"posterior fusion confidence of {mean_conf:.1f}%."
-            )
-            morphology = (
-                f"Multimodal agreement overcomes optical atmospheric attenuation and cloud coverage by correlating "
-                f"surface spectral absorption with specular microwave radar backscatter depressions."
-            )
-        elif target_name == "urban":
-            scene_desc = (
-                f"Analysis of the satellite observation reveals prominent clusters of anthropogenic infrastructure and built-up fabric. "
-                f"The scene exhibits high panchromatic surface reflectance characteristic of concrete, masonry rooftops, asphalt roadways, "
-                f"and commercial/residential structures. The ConvNeXt-v2 neural backbone identified {pixel_count:,} contiguous urban pixels, "
-                f"encompassing approximately {area_ha:,.2f} hectares ({cov_pct:.1f}% scene footprint) with an average posterior model confidence of {mean_conf:.1f}%."
-            )
-            morphology = (
-                f"Morphological distribution demonstrates significant structural concentration across the central and arterial zones of the scene, "
-                f"demarcated by regular geometric boundaries and distinct spectral contrast against the surrounding fallow/peri-urban parcels."
-            )
-        elif target_name in ["water", "flooded_land", "open_water"]:
-            scene_desc = (
-                f"Analysis of the scene demonstrates unambiguous hydrologic delineation. "
-                f"Strong absorption across the near-infrared/red spectrum and pronounced specular reflectance in optical bands define {pixel_count:,} pixels "
-                f"({area_ha:,.2f} hectares, {cov_pct:.1f}% of total scene area) classified as surface water bodies with {mean_conf:.1f}% mean confidence."
-            )
-            morphology = (
-                f"The hydrologic boundaries trace natural bathymetric contours and drainage corridors with coherent spatial connectivity."
-            )
-        elif target_name in ["cropland", "dense_forest", "vegetation", "shrubland"]:
-            scene_desc = (
-                f"Analysis shows significant photosynthetic biomass and vegetative cover. "
-                f"Chlorophyll-induced green band dominance and high vegetative indices identify {pixel_count:,} pixels "
-                f"({area_ha:,.2f} hectares, {cov_pct:.1f}% coverage) of {target_name.replace('_', ' ')} with {mean_conf:.1f}% mean confidence."
-            )
-            morphology = (
-                f"The agricultural/vegetative parcels display characteristic field geometries and contiguous canopy clustering."
-            )
-        else:
-            scene_desc = (
-                f"Satellite analysis detected {pixel_count:,} pixels ({area_ha:,.2f} hectares, {cov_pct:.1f}% scene coverage) "
-                f"associated with '{target_name}' at {mean_conf:.1f}% mean confidence."
-            )
-            morphology = "Feature distributions align with predicted land-cover boundaries across the observation."
-
-        # Physics rationale
-        if audit.physics_checks:
-            check_summaries = []
-            for check in audit.physics_checks:
-                status = "PASSED" if check.passed else "FLAGGED"
-                check_summaries.append(
-                    f"{check.index_name} ({status}, {check.coverage_percentage:.1f}% agreement, mean {check.mean_value:.3f})"
-                )
-            physics_desc = f"Deterministic physical cross-examination confirmed consistent radiometric signatures across: {'; '.join(check_summaries)} (Verdict: {audit.verdict})."
-        else:
-            physics_desc = f"Deterministic radiometric verification ({audit.verdict}): No anomalous water inundation or contradictory spectral inversions detected within the delineated mask."
-
-        summary = (
-            f"Query Analysis Complete: '{request.query_text}'\n\n"
-            f"• Spatial & Semantic Findings:\n  {scene_desc}\n\n"
-            f"• Morphological Layout:\n  {morphology}\n\n"
-            f"• Physical & Radiometric Verification:\n  {physics_desc}\n\n"
-            f"• Forensic Trace:\n"
-            f"  Agentic Controller: {audit.controller_model}\n"
-            f"  Specialist Backbone: {audit.specialist_model}\n"
-            f"  Task Routing: {routing.task_type.value} | Trace ID: {audit.trace_id[:8]} | Latency: {audit.execution_time_ms:.1f} ms."
+        """Formulate a comprehensive, verifiable natural language reasoning summary using the pretrained VLM decoder."""
+        return self.router.decoder.synthesize_vlm_answer(
+            query=request.query_text,
+            task_type=routing.task_type,
+            statistics=statistics,
+            audit=audit,
         )
-        return summary
+

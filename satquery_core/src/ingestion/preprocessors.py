@@ -58,23 +58,26 @@ class OpticalPreprocessor:
                 - Calibrated float32 array in [clamp_min, clamp_max].
                 - Boolean validity mask (True = valid pixel, False = NoData / corrupted).
         """
-        effective_nodata = nodata if nodata is not None else self.nodata_val
         data = array.astype(np.float32)
+        data = np.nan_to_num(data, nan=0.0, posinf=65535.0, neginf=0.0)
 
-        # Generate validity mask
-        if effective_nodata is not None:
-            valid_mask = ~np.isclose(data, effective_nodata)
-        else:
-            valid_mask = np.ones(data.shape, dtype=bool)
+        # Generate validity mask safely without wiping legitimate zero-value pixels
+        valid_mask = ~np.isnan(data) & ~np.isinf(data)
+        if nodata is not None and not np.isnan(nodata):
+            valid_mask &= ~np.isclose(data, float(nodata))
 
-        # Scale to surface reflectance: adaptively detect 8-bit (PNG/JPG) vs 16-bit satellite DN
+        # Scale to surface reflectance: adaptively detect 8-bit, 16-bit S2 (10000), vs full uint16 (65535)
         max_val = float(np.nanmax(data)) if data.size > 0 else 1.0
         if max_val <= 1.0:
             scale = 1.0
         elif max_val <= 255.0:
             scale = 255.0  # Standard 8-bit visual RGB (PNG, JPEG)
+        elif max_val <= 10000.0:
+            scale = self.scale_factor  # Multi-spectral Sentinel-2 L2A surface reflectance DN (10000)
+        elif max_val <= 65535.0:
+            scale = 65535.0  # Standard 16-bit unsigned integer raster range
         else:
-            scale = self.scale_factor  # Multi-spectral satellite DN (Sentinel-2 L2A / Landsat)
+            scale = max_val
 
         calibrated = data / scale
 
@@ -153,27 +156,34 @@ class SARPreprocessor:
         """
         Calibrate SAR linear array to sigma-nought backscatter in decibels.
 
-        Formula:
-            I = DN^2 if is_amplitude else DN
-            sigma^0_dB = 10.0 * log10(max(I, epsilon))
-
-        Args:
-            array: SAR array of shape (Channels, Height, Width) or (Height, Width).
-
-        Returns:
-            Calibrated float32 array in decibels [clamp_min_db, clamp_max_db].
+        Supports both:
+        - 16-bit satellite GeoTIFF DN (e.g., Sentinel-1 GRD DN scaled by 10000)
+        - 8-bit remote-sensing benchmark images (e.g., PNG/JPEG in [0, 255])
         """
         data = array.astype(np.float32)
-        # Normalize unscaled integer DN to normalized amplitude if needed (e.g. 16-bit DN / 10000)
-        if np.max(data) > 10.0:
-            data = data / 10000.0
+        max_val = float(np.max(data)) if data.size > 0 else 1.0
+
+        if max_val <= 255.0 and max_val > 10.0:
+            # 8-bit benchmark image (PNG/JPEG): map [0, 255] linearly to [-30.0, 0.0] dB
+            sigma0_db = -30.0 + (data / 255.0) * 30.0
+            if self.filter_speckle and sigma0_db.shape[-1] >= self.filter_window_size:
+                sigma0_db = self._apply_boxcar_filter(sigma0_db, self.filter_window_size)
+            return np.clip(sigma0_db, self.clamp_min_db, self.clamp_max_db).astype(np.float32)
+
+        # 16-bit satellite GeoTIFF DN
+        if max_val > 10.0:
+            if max_val <= 10000.0:
+                data = data / 10000.0
+            elif max_val <= 65535.0:
+                data = data / 65535.0
+            else:
+                data = data / max_val
 
         # Compute linear power intensity
         if self.is_amplitude:
             intensity = np.square(data)
         else:
             intensity = np.maximum(data, 0.0)
-
 
         # Optional spatial speckle filtering in the linear intensity domain
         if self.filter_speckle and intensity.shape[-1] >= self.filter_window_size:

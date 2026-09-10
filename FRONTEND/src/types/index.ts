@@ -153,12 +153,12 @@ export type ImageAnalysisMode =
 export interface UploadedImageMeta {
   id: string;
   name: string;
-  format: 'GeoTIFF' | 'TIFF';
+  format: 'GeoTIFF' | 'TIFF' | 'PNG' | 'JPEG';
   dimensions: string;
   modality: 'Optical BOA' | 'SAR VV/VH' | 'Panchromatic' | 'SWIR / NBR';
   acquisitionDate: string;
   sizeMb: number;
-  validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Error';
+  validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Valid Benchmark Image' | 'Error';
   previewVisual?: string;
   previewUrl?: string;
   fileObject?: File;

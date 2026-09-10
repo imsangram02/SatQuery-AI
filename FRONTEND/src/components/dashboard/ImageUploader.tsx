@@ -65,9 +65,11 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
       const isTiff = file.name.toLowerCase().endsWith('.tif') || file.name.toLowerCase().endsWith('.tiff');
+      const isPng = file.name.toLowerCase().endsWith('.png');
+      const isJpeg = file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg');
 
-      if (!isTiff) {
-        setErrorMessage(`"${file.name}" is not supported. Please upload GeoTIFF (.tif, .tiff) satellite imagery.`);
+      if (!isTiff && !isPng && !isJpeg) {
+        setErrorMessage(`"${file.name}" is not supported. Please upload GeoTIFF (.tif, .tiff) or benchmark imagery (.png, .jpg).`);
         continue;
       }
 
@@ -82,15 +84,17 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         }
       }
 
+      const formatLabel: 'GeoTIFF' | 'TIFF' | 'PNG' | 'JPEG' = isTiff ? 'GeoTIFF' : isPng ? 'PNG' : 'JPEG';
+
       const newImage: UploadedImageMeta = {
         id: `custom-img-${Date.now()}-${i}`,
         name: file.name,
-        format: isTiff ? 'GeoTIFF' : 'TIFF',
+        format: formatLabel,
         dimensions: '2048 × 2048 px',
         modality: isSar ? 'SAR VV/VH' : 'Optical BOA',
         acquisitionDate: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
         sizeMb: Number((file.size / (1024 * 1024)).toFixed(1)) || 16.4,
-        validationStatus: isSar ? 'Valid SAR C-Band' : 'Valid GeoTIFF',
+        validationStatus: isSar ? 'Valid SAR C-Band' : isTiff ? 'Valid GeoTIFF' : 'Valid Benchmark Image',
         previewVisual: isSar
           ? 'linear-gradient(135deg, #020617 0%, #0f172a 40%, #1e293b 100%)'
           : 'linear-gradient(135deg, #134e4a 0%, #065f46 45%, #0284c7 100%)',

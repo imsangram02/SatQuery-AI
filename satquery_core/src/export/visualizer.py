@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from scipy.ndimage import label, find_objects
+from scipy.ndimage import label, find_objects, binary_opening, binary_closing
 
 from satquery_core.src.ingestion.geotiff_loader import GeoTIFFData
 
@@ -165,44 +165,39 @@ class ArtifactVisualizer:
         color = cls.get_class_color(label_text)
 
         # Create overlay canvas
+        # Create overlay canvas with vectorized tint array (1000x faster than per-pixel point draw)
         base_img = Image.fromarray(rgb).convert("RGBA")
-        overlay_mask = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-        draw_overlay = ImageDraw.Draw(overlay_mask)
+        overlay_arr = np.zeros((h, w, 4), dtype=np.uint8)
+        tint_rgba = (color[0], color[1], color[2], 120)
+        overlay_arr[binary_mask] = tint_rgba
 
-        # Draw tinted pixels on detection regions
-        tint_rgba = (color[0], color[1], color[2], 110)
-        mask_pixels = np.argwhere(binary_mask)
-        for r, c in mask_pixels:
-            draw_overlay.point((c, r), fill=tint_rgba)
-
+        overlay_mask = Image.fromarray(overlay_arr, mode="RGBA")
         blended = Image.alpha_composite(base_img, overlay_mask).convert("RGB")
         draw = ImageDraw.Draw(blended)
 
-        # Find connected components to draw bounding boxes and tags
-        labeled_mask, num_features = label(binary_mask)
-        slices = find_objects(labeled_mask)
+        # Extract precise, morphologically filtered bounding boxes
+        boxes = cls.extract_bounding_boxes(
+            binary_mask=binary_mask,
+            label_text=label_text,
+            confidence=confidence,
+            prob_map=prob_map,
+            max_boxes=6,
+        )
 
-        # Draw up to top 5 prominent detection bounding boxes
-        box_count = 0
-        for i, sl in enumerate(slices):
-            if sl is None:
-                continue
-            r_slice, c_slice = sl
-            box_area = (r_slice.stop - r_slice.start) * (c_slice.stop - c_slice.start)
-            if box_area < 25:  # filter tiny noise
-                continue
+        # Draw crisp bounding boxes and localized label tags
+        for b in boxes:
+            cmin, rmin, cmax, rmax = b["pixel_box"]
 
-            # Bounding box coordinates: (x0, y0, x1, y1)
-            x0, y0 = c_slice.start, r_slice.start
-            x1, y1 = c_slice.stop, r_slice.stop
+            # Draw solid bounding rectangle with 3px border
+            draw.rectangle([(cmin, rmin), (cmax, rmax)], outline=(color[0], color[1], color[2]), width=3)
 
-            draw.rectangle([(x0, y0), (x1, y1)], outline=(color[0], color[1], color[2]), width=2)
-
-            box_count += 1
-            if box_count <= 4:
-                tag = f"{label_text.upper()}"
-                draw.rectangle([(x0, max(0, y0 - 16)), (x0 + len(tag) * 8 + 10, y0)], fill=(color[0], color[1], color[2]))
-                draw.text((x0 + 4, max(0, y0 - 15)), tag, fill=(255, 255, 255))
+            # Draw prominent label badge above box
+            tag = f" {b['label']} • {b['sector']} "
+            tag_w = len(tag) * 8 + 8
+            tag_h = 20
+            box_top = max(0, rmin - tag_h)
+            draw.rectangle([(cmin, box_top), (min(w, cmin + tag_w), rmin)], fill=(color[0], color[1], color[2]))
+            draw.text((cmin + 4, box_top + 2), tag, fill=(255, 255, 255))
 
         # Bottom HUD Status Banner
         banner_h = 42
@@ -222,3 +217,99 @@ class ArtifactVisualizer:
 
         final_img.save(out_path, format="PNG", optimize=True)
         return str(out_path)
+
+    @classmethod
+    def extract_bounding_boxes(
+        cls,
+        binary_mask: np.ndarray,
+        label_text: str = "Detection",
+        confidence: float = 0.88,
+        prob_map: Optional[np.ndarray] = None,
+        max_boxes: int = 6,
+        min_pixels: int = 150,
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract precise, localized bounding boxes for grounded target regions.
+        Applies morphological filtering to eliminate noise filaments and extracts tight bounds,
+        spatial sectors (e.g. Northwest, Central), pixel coordinates, and local confidence.
+        """
+        h, w = binary_mask.shape
+        if np.sum(binary_mask) == 0:
+            return []
+
+        # Adaptive minimum pixel threshold (at least min_pixels or 0.02% of scene)
+        adaptive_min = max(min_pixels, int(h * w * 0.0002))
+
+        # Morphological opening disconnects thin 1-pixel bridges between disparate regions
+        struct_open = np.ones((5, 5), dtype=bool)
+        struct_close = np.ones((3, 3), dtype=bool)
+        cleaned = binary_opening(binary_mask, structure=struct_open)
+        cleaned = binary_closing(cleaned, structure=struct_close)
+
+        labeled_mask, num_features = label(cleaned)
+        if num_features == 0:
+            labeled_mask, num_features = label(binary_mask)
+            if num_features == 0:
+                return []
+
+        component_sizes = np.bincount(labeled_mask.ravel())
+        # Sort components by actual non-zero pixel mass descending (skip 0=background)
+        sorted_indices = np.argsort(component_sizes[1:])[::-1] + 1
+
+        color_tuple = cls.get_class_color(label_text)
+        hex_color = f"#{color_tuple[0]:02x}{color_tuple[1]:02x}{color_tuple[2]:02x}"
+
+        boxes = []
+        rank = 0
+        for comp_idx in sorted_indices:
+            cnt = int(component_sizes[comp_idx])
+            if cnt < adaptive_min:
+                continue
+
+            comp_mask = (labeled_mask == comp_idx)
+            rows = np.any(comp_mask, axis=1)
+            cols = np.any(comp_mask, axis=0)
+            if not np.any(rows) or not np.any(cols):
+                continue
+
+            rmin, rmax = int(np.where(rows)[0][0]), int(np.where(rows)[0][-1])
+            cmin, cmax = int(np.where(cols)[0][0]), int(np.where(cols)[0][-1])
+            box_w = cmax - cmin + 1
+            box_h = rmax - rmin + 1
+
+            # Compute local per-box confidence
+            if prob_map is not None:
+                box_conf = float(np.mean(prob_map[comp_mask]))
+            else:
+                box_conf = float(confidence)
+
+            # Spatial sector determination
+            center_y = (rmin + rmax) / (2.0 * max(1, h))
+            center_x = (cmin + cmax) / (2.0 * max(1, w))
+            vert = "Northern" if center_y < 0.35 else "Southern" if center_y > 0.65 else "Central"
+            horiz = "Western" if center_x < 0.35 else "Eastern" if center_x > 0.65 else "Central"
+            sector = f"{vert}-{horiz}" if vert != horiz else vert
+
+            # Estimated hectares (assuming standard 10m pixel = 0.01 ha)
+            box_ha = round(cnt * 0.01, 2)
+
+            rank += 1
+            boxes.append({
+                "id": f"bb-{rank}",
+                "label": f"{label_text.title()} ({round(box_conf * 100)}%)",
+                "sector": sector,
+                "pixel_box": [cmin, rmin, cmax, rmax],  # [x_min, y_min, x_max, y_max]
+                "pixel_count": cnt,
+                "area_hectares": float(box_ha),
+                "x": round((cmin / w) * 100.0, 1),
+                "y": round((rmin / h) * 100.0, 1),
+                "width": round((box_w / w) * 100.0, 1),
+                "height": round((box_h / h) * 100.0, 1),
+                "color": hex_color,
+                "confidence": round(box_conf * 100),
+            })
+
+            if len(boxes) >= max_boxes:
+                break
+
+        return boxes

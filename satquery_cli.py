@@ -115,7 +115,21 @@ def display_results_in_cli(output: EngineOutput) -> None:
             if check.discrepancy_note:
                 print(f"      ↳ Note: {check.discrepancy_note}")
 
-    # Output Artifacts Table
+    # Bounding Box Grounding Table
+    boxes = stats.get("bounding_boxes", [])
+    if boxes:
+        print("\n  🎯 PRECISE BOUNDING BOX GROUNDINGS & LOCALIZED TARGETS:")
+        print(f"  ┌{'─' * 8}┬{'─' * 18}┬{'─' * 28}┬{'─' * 12}┬{'─' * 8}┐")
+        print(f"  │ {'ID':<6} │ {'Sector':<16} │ {'Pixel Box [x0,y0,x1,y1]':<26} │ {'Area':<10} │ {'Conf':<6} │")
+        print(f"  ├{'─' * 8}┼{'─' * 18}┼{'─' * 28}┼{'─' * 12}┼{'─' * 8}┤")
+        for b in boxes:
+            b_id = b.get("id", "")
+            sector = b.get("sector", "Central")
+            pbox = str(b.get("pixel_box", [b.get("x"), b.get("y"), b.get("width"), b.get("height")]))
+            b_ha = f"{b.get('area_hectares', 0.0):.1f} ha" if 'area_hectares' in b else f"{b.get('pixel_count', 0)} px"
+            b_conf = f"{b.get('confidence', 0)}%"
+            print(f"  │ {b_id:<6} │ {sector:<16} │ {pbox:<26} │ {b_ha:<10} │ {b_conf:<6} │")
+        print(f"  └{'─' * 8}┴{'─' * 18}┴{'─' * 28}┴{'─' * 12}┴{'─' * 8}┘")
     if artifacts:
         print("\n" + "─" * 82)
         print("  📁 STORAGE & GENERATED FILE ARTIFACT LOCATIONS")
@@ -183,6 +197,11 @@ def run_cli() -> None:
         "--sar",
         type=str,
         help="SAR Sentinel-1 radar raster for cross-modal fusion",
+    )
+    parser.add_argument(
+        "--secondary",
+        type=str,
+        help="Secondary satellite observation raster (bi-temporal post-event or cross-modal SAR)",
     )
     parser.add_argument(
         "-c", "--confidence",
@@ -276,6 +295,22 @@ def run_cli() -> None:
             args.sar = str(samples_dir / "sentinel1_godavari_sar.tif")
         if not args.query:
             args.query = "Fuse optical and SAR radar imagery for cloud-penetrating water and structure detection"
+        args.image = None
+
+    if args.secondary:
+        q_lower = (args.query or "").lower()
+        if any(k in q_lower for k in ["sar", "radar", "fuse", "fusion", "cross-modal", "cloud"]):
+            if not args.sar:
+                args.sar = args.secondary
+        else:
+            if not args.post:
+                args.post = args.secondary
+
+    if args.image and args.post and not args.pre:
+        args.pre = args.image
+        args.image = None
+    if args.image and args.sar and not args.optical:
+        args.optical = args.image
         args.image = None
 
     if args.pre or args.optical:
