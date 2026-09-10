@@ -76,8 +76,8 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
   const agentSteps: AgentProcessStep[] = [
     { id: '1', title: 'Input validated', detail: 'Raster tags and CRS EPSG projection confirmed', status: 'completed' },
     { id: '2', title: 'Query understood', detail: 'Semantic intent & referential targets extracted', status: 'completed' },
-    { id: '3', title: 'Mode auto-detected', detail: `${mode === 'bi-temporal' ? 'BI-TEMPORAL CHANGE DETECTION' : mode === 'optical-sar' ? 'OPTICAL + SAR CROSS-MODAL' : 'SINGLE IMAGE GROUNDING'} pipeline auto-routed`, status: 'completed' },
-    { id: '4', title: 'Specialist model selected', detail: mode === 'bi-temporal' ? 'Siamese ResNet-50 (Bi-Temporal)' : mode === 'optical-sar' ? '14-Channel ViT (Optical+SAR)' : 'ConvNeXt-v2 Optical/SAR Specialist', status: 'completed' },
+    { id: '3', title: 'Mode auto-detected', detail: `${mode === 'bi-temporal' ? 'CHANGE DETECTION' : mode === 'optical-sar' ? 'OPTICAL + SAR CROSS-MODAL' : 'SINGLE IMAGE GROUNDING'} pipeline auto-routed`, status: 'completed' },
+    { id: '4', title: 'Specialist model selected', detail: mode === 'bi-temporal' ? 'Siamese ResNet-50 Change Detector' : mode === 'optical-sar' ? '14-Channel ViT (Optical+SAR)' : 'ConvNeXt-v2 Optical/SAR Specialist', status: 'completed' },
     { id: '5', title: 'Running analysis...', detail: 'Offline deep learning specialist inference running', status: 'running' },
     { id: '6', title: 'Generating visual evidence', detail: 'Extracting bounding boxes & difference heatmap', status: 'pending' },
     { id: '7', title: 'Preparing response', detail: 'Correlating confidence and execution summary', status: 'pending' }

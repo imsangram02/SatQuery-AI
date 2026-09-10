@@ -167,7 +167,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   return (
     <div className="space-y-6">
       {/* Auto-Detected Analysis Mode Indicator */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 backdrop-blur-sm">
+      {/* <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
           <div>
@@ -179,7 +179,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
                 {mode === 'single'
                   ? 'Single Image Mode (VQA / Grounding)'
                   : mode === 'bi-temporal'
-                  ? 'Bi-Temporal Mode (T0 & T1 Change Analysis)'
+                  ? 'Multi-Scene Change Detection'
                   : 'Optical + SAR Cross-Modal Fusion'}
               </span>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
@@ -193,7 +193,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
                 ? 'Single scene detected → Auto-routed to ConvNeXt-v2 Optical/SAR Specialist & Physics Sanity Engine'
                 : mode === 'optical-sar'
                 ? 'Optical + SAR radar pair detected → Auto-routed to 14-Channel ViT Cross-Modal Specialist'
-                : 'Dual temporal scenes detected → Auto-routed to Siamese ResNet-50 Change Detector'}
+                : 'Multi-scene detected → Auto-routed to Change Detection Specialist'}
             </p>
           </div>
         </div>
@@ -201,7 +201,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         <div className="text-[11px] font-mono text-slate-400 hidden sm:block shrink-0">
           <span className="text-cyan-500 font-semibold">{images.length}</span> {images.length === 1 ? 'image staged' : 'images staged'}
         </div>
-      </div>
+      </div> */}
 
       {/* Large Drag-and-Drop Area (Section 16 of design.md) */}
       <div
@@ -313,9 +313,6 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           <span className="font-bold text-slate-700 dark:text-slate-300 uppercase">
             Staged Satellite Imagery ({images.length} {images.length === 1 ? 'image' : 'images'})
           </span>
-          <span className="text-cyan-600 dark:text-cyan-400">
-            {mode === 'single' ? 'Single Image Mode' : mode === 'bi-temporal' ? 'Bi-Temporal Mode (T0 & T1)' : 'Optical + SAR Modality'}
-          </span>
         </div>
 
         {images.length === 0 ? (
@@ -333,7 +330,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
-                      Slot 0{index + 1}: {index === 0 && mode === 'bi-temporal' ? 'Baseline (T0)' : index === 1 && mode === 'bi-temporal' ? 'Comparison (T1)' : index === 0 && mode === 'optical-sar' ? 'Optical Modality' : index === 1 && mode === 'optical-sar' ? 'SAR Radar Modality' : 'Target Scene'}
+                      Slot 0{index + 1}: {index === 0 && mode === 'bi-temporal' ? 'Baseline Scene' : index === 1 && mode === 'bi-temporal' ? 'Comparison Scene' : index === 0 && mode === 'optical-sar' ? 'Optical Modality' : index === 1 && mode === 'optical-sar' ? 'SAR Radar Modality' : 'Target Scene'}
                     </span>
                     <span className="text-xs font-mono font-bold text-slate-500">{img.format}</span>
                   </div>

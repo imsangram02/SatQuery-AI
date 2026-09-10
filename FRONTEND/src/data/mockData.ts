@@ -366,85 +366,6 @@ export interface AnalysisScenario {
 
 export const MOCK_SCENARIOS: AnalysisScenario[] = [
   {
-    id: 'sc-urban-expansion',
-    title: 'Bi-Temporal Urban Expansion Analysis',
-    category: 'Change-based VQA',
-    mode: 'bi-temporal',
-    taskType: 'change-vqa',
-    defaultQuery: 'Has the built-up area increased?',
-    images: [
-      {
-        id: 'img-urban-2022',
-        name: 'Sentinel2_Bengaluru_T0_2022.tif',
-        format: 'GeoTIFF',
-        dimensions: '2048 × 2048 px',
-        modality: 'Optical BOA',
-        acquisitionDate: 'June 14, 2022',
-        sizeMb: 18.4,
-        validationStatus: 'Valid GeoTIFF',
-        previewVisual: 'linear-gradient(135deg, #1e293b 0%, #334155 45%, #475569 100%)'
-      },
-      {
-        id: 'img-urban-2025',
-        name: 'Sentinel2_Bengaluru_T1_2025.tif',
-        format: 'GeoTIFF',
-        dimensions: '2048 × 2048 px',
-        modality: 'Optical BOA',
-        acquisitionDate: 'August 28, 2025',
-        sizeMb: 19.1,
-        validationStatus: 'Valid GeoTIFF',
-        previewVisual: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #b45309 100%)'
-      }
-    ],
-    result: {
-      answer: 'Yes, the built-up area increased significantly in the selected northwest peri-urban corridor between June 2022 and August 2025. Total impervious surface expanded by +28.4% (+412.5 hectares), replacing previously fallow agricultural land and scrub vegetation. 14 major logistics and high-density residential structures were newly detected.',
-      confidence: 91,
-      confidenceLevel: 'High',
-      selectedTask: 'Change-based VQA',
-      modelsUsed: ['Bi-Temporal Siamese Change Detection Model', 'Remote-Sensing Vision-Language Model (RS-VLM)'],
-      executionSummary: {
-        task: 'Change-based VQA',
-        inputSummary: '2 Bi-temporal Sentinel-2 L2A BOA Orthorectified Scenes (2022 vs 2025)',
-        selectedTools: ['Change Detection Model', 'Remote-Sensing VQA Model'],
-        pipeline: [
-          'Validation & Radiometric Co-Registration',
-          'Bi-Temporal Deep Siamese Difference Extraction',
-          'Spatial Change Map Interpretation',
-          'Evidence-Grounded Natural Language Answer Generation'
-        ],
-        latencyMs: 24.6,
-        status: 'Completed',
-        details: 'Radiometric calibration confirmed RMSE < 0.18 pixels. Difference threshold established at Otsu optimum + 0.15.'
-      },
-      evidence: {
-        type: 'change-vqa',
-        imageA: {
-          visual: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)',
-          label: 'Baseline Image (June 2022)',
-          date: '2022-06-14',
-          bounds: '12.97°N, 77.59°E [EPSG:32643]'
-        },
-        imageB: {
-          visual: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0369a1 100%)',
-          label: 'Post-Period Image (August 2025)',
-          date: '2025-08-28',
-          bounds: '12.97°N, 77.59°E [EPSG:32643]'
-        },
-        changeMap: {
-          visual: 'linear-gradient(135deg, #0f172a 0%, #b45309 40%, #dc2626 70%, #ef4444 100%)',
-          label: 'AI Difference Heatmap (Built-up Gain Highlighted in Amber/Red)',
-          legend: 'Red: High-Confidence Built-up Gain (+28.4%) | Green: Unchanged Vegetated Area | Black: No Significant Drift'
-        },
-        stats: [
-          { label: 'Built-up Area Growth', value: '+412.5 ha', delta: '+28.4%' },
-          { label: 'Converted Farmland', value: '348.0 ha', delta: '-19.2%' },
-          { label: 'Classification Confidence', value: '91.2%', delta: 'High Precision' },
-          { label: 'Co-Registration RMSE', value: '0.14 px', delta: 'Sub-Pixel Accurate' }
-        ]
-      }
-    }
-  },
-  {
     id: 'sc-visual-grounding',
     title: 'Visual Grounding & Water Body Localization',
     category: 'Visual Grounding',
@@ -501,6 +422,85 @@ export const MOCK_SCENARIOS: AnalysisScenario[] = [
           { label: 'Mean NDWI Index', value: '+0.68', delta: 'Clear Water' },
           { label: 'Perimeter Length', value: '184.2 km', delta: 'Digitized' },
           { label: 'Grounding IoU', value: '94.8%', delta: 'High Overlap' }
+        ]
+      }
+    }
+  },
+  {
+    id: 'sc-urban-expansion',
+    title: 'Urban Expansion Change Analysis',
+    category: 'Change-based VQA',
+    mode: 'bi-temporal',
+    taskType: 'change-vqa',
+    defaultQuery: 'Has the built-up area increased?',
+    images: [
+      {
+        id: 'img-urban-2022',
+        name: 'Sentinel2_Bengaluru_T0_2022.tif',
+        format: 'GeoTIFF',
+        dimensions: '2048 × 2048 px',
+        modality: 'Optical BOA',
+        acquisitionDate: 'June 14, 2022',
+        sizeMb: 18.4,
+        validationStatus: 'Valid GeoTIFF',
+        previewVisual: 'linear-gradient(135deg, #1e293b 0%, #334155 45%, #475569 100%)'
+      },
+      {
+        id: 'img-urban-2025',
+        name: 'Sentinel2_Bengaluru_T1_2025.tif',
+        format: 'GeoTIFF',
+        dimensions: '2048 × 2048 px',
+        modality: 'Optical BOA',
+        acquisitionDate: 'August 28, 2025',
+        sizeMb: 19.1,
+        validationStatus: 'Valid GeoTIFF',
+        previewVisual: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #b45309 100%)'
+      }
+    ],
+    result: {
+      answer: 'Yes, the built-up area increased significantly in the selected northwest peri-urban corridor between June 2022 and August 2025. Total impervious surface expanded by +28.4% (+412.5 hectares), replacing previously fallow agricultural land and scrub vegetation. 14 major logistics and high-density residential structures were newly detected.',
+      confidence: 91,
+      confidenceLevel: 'High',
+      selectedTask: 'Change-based VQA',
+      modelsUsed: ['Siamese Change Detection Model', 'Remote-Sensing Vision-Language Model (RS-VLM)'],
+      executionSummary: {
+        task: 'Change-based VQA',
+        inputSummary: '2 Dual Sentinel-2 L2A BOA Orthorectified Scenes (2022 vs 2025)',
+        selectedTools: ['Change Detection Model', 'Remote-Sensing VQA Model'],
+        pipeline: [
+          'Validation & Radiometric Co-Registration',
+          'Deep Siamese Difference Extraction',
+          'Spatial Change Map Interpretation',
+          'Evidence-Grounded Natural Language Answer Generation'
+        ],
+        latencyMs: 24.6,
+        status: 'Completed',
+        details: 'Radiometric calibration confirmed RMSE < 0.18 pixels. Difference threshold established at Otsu optimum + 0.15.'
+      },
+      evidence: {
+        type: 'change-vqa',
+        imageA: {
+          visual: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)',
+          label: 'Baseline Image (June 2022)',
+          date: '2022-06-14',
+          bounds: '12.97°N, 77.59°E [EPSG:32643]'
+        },
+        imageB: {
+          visual: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0369a1 100%)',
+          label: 'Post-Period Image (August 2025)',
+          date: '2025-08-28',
+          bounds: '12.97°N, 77.59°E [EPSG:32643]'
+        },
+        changeMap: {
+          visual: 'linear-gradient(135deg, #0f172a 0%, #b45309 40%, #dc2626 70%, #ef4444 100%)',
+          label: 'AI Difference Heatmap (Built-up Gain Highlighted in Amber/Red)',
+          legend: 'Red: High-Confidence Built-up Gain (+28.4%) | Green: Unchanged Vegetated Area | Black: No Significant Drift'
+        },
+        stats: [
+          { label: 'Built-up Area Growth', value: '+412.5 ha', delta: '+28.4%' },
+          { label: 'Converted Farmland', value: '348.0 ha', delta: '-19.2%' },
+          { label: 'Classification Confidence', value: '91.2%', delta: 'High Precision' },
+          { label: 'Co-Registration RMSE', value: '0.14 px', delta: 'Sub-Pixel Accurate' }
         ]
       }
     }
