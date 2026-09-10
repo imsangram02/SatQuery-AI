@@ -22,13 +22,15 @@ interface ImageUploaderProps {
   images: UploadedImageMeta[];
   onAddImage: (img: UploadedImageMeta) => void;
   onRemoveImage: (id: string) => void;
+  onUpdateImage?: (id: string, updates: Partial<UploadedImageMeta>) => void;
 }
 
 export const ImageUploader: React.FC<ImageUploaderProps> = ({
   mode,
   images,
   onAddImage,
-  onRemoveImage
+  onRemoveImage,
+  onUpdateImage
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -118,7 +120,17 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
       SatQueryApiService.uploadFile(file).then(res => {
         if (res) {
           newImage.serverPath = res.filename;
-          if (res.preview_url) newImage.previewUrl = res.preview_url;
+          if (res.preview_url) {
+            newImage.previewUrl = res.preview_url;
+            newImage.previewVisual = `url("${res.preview_url}") center/cover no-repeat`;
+          }
+          if (onUpdateImage) {
+            onUpdateImage(newImage.id, {
+              serverPath: res.filename,
+              previewUrl: res.preview_url || undefined,
+              previewVisual: res.preview_url ? `url("${res.preview_url}") center/cover no-repeat` : newImage.previewVisual
+            });
+          }
         }
         setIsUploading(false);
       }).catch(() => setIsUploading(false));

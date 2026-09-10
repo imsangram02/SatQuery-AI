@@ -352,24 +352,36 @@ def analyze_query():
     enable_physics = bool(data.get("enable_physics_verification", True))
 
     # Check if primary file was uploaded in multipart request
-    if not image_path_str and "file" in request.files:
+    if "file" in request.files:
         file = request.files["file"]
         if file.filename and allowed_file(file.filename):
-            safe_name = secure_filename(file.filename)
-            saved_filename = f"upload_{int(time.time())}_{safe_name}"
-            target_path = UPLOADS_DIR / saved_filename
-            file.save(target_path)
-            image_path_str = str(target_path)
+            already_exists = False
+            if image_path_str:
+                p = Path(image_path_str)
+                if (p.is_absolute() and p.exists()) or (INPUTS_DIR / image_path_str).exists() or (UPLOADS_DIR / image_path_str).exists():
+                    already_exists = True
+            if not already_exists:
+                safe_name = secure_filename(file.filename)
+                saved_filename = f"upload_{int(time.time())}_{safe_name}"
+                target_path = UPLOADS_DIR / saved_filename
+                file.save(target_path)
+                image_path_str = str(target_path)
 
     # Check if secondary file was uploaded in multipart request
-    if not secondary_path_str and "secondary_file" in request.files:
+    if "secondary_file" in request.files:
         sec_file = request.files["secondary_file"]
         if sec_file.filename and allowed_file(sec_file.filename):
-            safe_name = secure_filename(sec_file.filename)
-            saved_filename = f"upload_{int(time.time())}_sec_{safe_name}"
-            target_path = UPLOADS_DIR / saved_filename
-            sec_file.save(target_path)
-            secondary_path_str = str(target_path)
+            sec_already_exists = False
+            if secondary_path_str:
+                sec_p = Path(secondary_path_str)
+                if (sec_p.is_absolute() and sec_p.exists()) or (INPUTS_DIR / secondary_path_str).exists() or (UPLOADS_DIR / secondary_path_str).exists():
+                    sec_already_exists = True
+            if not sec_already_exists:
+                safe_name = secure_filename(sec_file.filename)
+                saved_filename = f"upload_{int(time.time())}_sec_{safe_name}"
+                target_path = UPLOADS_DIR / saved_filename
+                sec_file.save(target_path)
+                secondary_path_str = str(target_path)
 
     # Resolve primary image path
     primary_path = None

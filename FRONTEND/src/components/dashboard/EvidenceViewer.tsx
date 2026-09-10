@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   ZoomIn, 
   ZoomOut, 
@@ -21,7 +21,20 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
   const [viewMode, setViewMode] = useState<'split' | 'side-by-side' | 'mask-overlay'>('split');
   const [maskVisible, setMaskVisible] = useState(true);
   const [maskOpacity, setMaskOpacity] = useState(80);
+  const [containerWidth, setContainerWidth] = useState<number>(800);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth);
+      }
+    };
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
 
   const evidence = result.evidence;
 
@@ -31,6 +44,12 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
       return `url("${visual}") center/cover no-repeat`;
     }
     return visual;
+  };
+
+  const getFullArtifactUrl = (url?: string) => {
+    if (!url) return '#';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return url.startsWith('/') ? url : `/${url}`;
   };
 
 
@@ -228,8 +247,9 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
               }}
             >
               <div
-                className="absolute inset-0 w-[1200px] h-full"
+                className="absolute inset-0 h-full"
                 style={{
+                  width: `${containerWidth}px`,
                   background: getVisualBackground(evidence.imageA?.visual, 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)')
                 }}
               >
@@ -373,7 +393,7 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
           <div className="flex flex-wrap gap-2 pt-1">
             {result.urls?.overlay_url && (
               <a
-                href={`http://127.0.0.1:8000${result.urls.overlay_url}`}
+                href={getFullArtifactUrl(result.urls.overlay_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="px-3 py-1.5 rounded-lg bg-cyan-950 border border-cyan-500/50 text-cyan-300 hover:bg-cyan-900 transition-colors flex items-center gap-1.5"
@@ -383,7 +403,7 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
             )}
             {result.urls?.heatmap_url && (
               <a
-                href={`http://127.0.0.1:8000${result.urls.heatmap_url}`}
+                href={getFullArtifactUrl(result.urls.heatmap_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="px-3 py-1.5 rounded-lg bg-purple-950 border border-purple-500/50 text-purple-300 hover:bg-purple-900 transition-colors flex items-center gap-1.5"
@@ -393,7 +413,7 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
             )}
             {result.urls?.mask_url && (
               <a
-                href={`http://127.0.0.1:8000${result.urls.mask_url}`}
+                href={getFullArtifactUrl(result.urls.mask_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="px-3 py-1.5 rounded-lg bg-blue-950 border border-blue-500/50 text-blue-300 hover:bg-blue-900 transition-colors flex items-center gap-1.5"
@@ -403,7 +423,7 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
             )}
             {result.urls?.report_markdown_url && (
               <a
-                href={`http://127.0.0.1:8000${result.urls.report_markdown_url}`}
+                href={getFullArtifactUrl(result.urls.report_markdown_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="px-3 py-1.5 rounded-lg bg-emerald-950 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-900 transition-colors flex items-center gap-1.5"
@@ -413,7 +433,7 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
             )}
             {result.urls?.geojson_url && (
               <a
-                href={`http://127.0.0.1:8000${result.urls.geojson_url}`}
+                href={getFullArtifactUrl(result.urls.geojson_url)}
                 target="_blank"
                 rel="noreferrer"
                 className="px-3 py-1.5 rounded-lg bg-amber-950 border border-amber-500/50 text-amber-300 hover:bg-amber-900 transition-colors flex items-center gap-1.5"

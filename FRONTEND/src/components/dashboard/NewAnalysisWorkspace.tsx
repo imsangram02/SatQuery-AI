@@ -101,6 +101,10 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
     setImages(prev => prev.filter(img => img.id !== id));
   };
 
+  const handleUpdateImage = (id: string, updates: Partial<UploadedImageMeta>) => {
+    setImages(prev => prev.map(img => img.id === id ? { ...img, ...updates } : img));
+  };
+
   // Run the full authentic agentic analysis workflow
   const handleAnalyze = async () => {
     if (!query.trim() || isProcessing) return;
@@ -271,6 +275,41 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
     setTimeout(() => setSavedSuccess(false), 4000);
   };
 
+  const renderFormattedAnswer = (text: string) => {
+    if (!text) return null;
+    const lines = text.split('\n');
+    return (
+      <div className="space-y-2">
+        {lines.map((line, lIdx) => {
+          if (!line.trim()) return <div key={lIdx} className="h-1.5" />;
+          const parts = line.split(/(\*\*.*?\*\*)/g);
+          const isHeader = line.startsWith('🎯') || line.startsWith('🛰️') || line.startsWith('• Direct Answer:');
+          return (
+            <div
+              key={lIdx}
+              className={`leading-relaxed text-sm sm:text-base ${
+                isHeader
+                  ? 'font-bold text-slate-900 dark:text-white'
+                  : 'text-slate-700 dark:text-slate-200'
+              }`}
+            >
+              {parts.map((part, pIdx) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                  return (
+                    <strong key={pIdx} className="font-bold text-cyan-600 dark:text-cyan-300">
+                      {part.slice(2, -2)}
+                    </strong>
+                  );
+                }
+                return part;
+              })}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-200">
       {/* 15. Workspace Header (Section 15 of design.md: Heading & Subtitle) */}
@@ -308,6 +347,7 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
         images={images}
         onAddImage={handleAddImage}
         onRemoveImage={handleRemoveImage}
+        onUpdateImage={handleUpdateImage}
       />
 
       {/* 18. Natural Language Query */}
@@ -352,10 +392,11 @@ export const NewAnalysisWorkspace: React.FC<NewAnalysisWorkspaceProps> = ({
             </div>
 
             {/* Final Answer Text */}
-            <div className="space-y-2">
-              <div className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white leading-snug">
-                {currentResult.answer}
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+                Ground-Verified Query Findings
               </div>
+              {renderFormattedAnswer(currentResult.answer)}
             </div>
 
             {/* Action Bar: Save to Reports / Re-run */}
