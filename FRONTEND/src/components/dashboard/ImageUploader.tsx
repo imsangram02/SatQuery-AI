@@ -33,7 +33,19 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
   const [isDragOver, setIsDragOver] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [availableSamples, setAvailableSamples] = useState<any[]>([]);
+  const [showSamplePicker, setShowSamplePicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    SatQueryApiService.getSamples().then(samples => {
+      if (mounted && samples && samples.length > 0) {
+        setAvailableSamples(samples);
+      }
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -115,6 +127,31 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
   };
 
+  const handleStageSample = (sample: any) => {
+    const isSar = (sample.name || '').toLowerCase().includes('sar') || 
+                  (sample.name || '').toLowerCase().includes('s1') || 
+                  (sample.modality || '').toLowerCase().includes('sar');
+    const isTiff = (sample.name || '').toLowerCase().endsWith('.tif') || (sample.name || '').toLowerCase().endsWith('.tiff');
+
+    const stagedImg: UploadedImageMeta = {
+      id: `srv-${Date.now()}-${sample.id}`,
+      name: sample.name,
+      format: isTiff ? 'GeoTIFF' : 'PNG',
+      dimensions: '512 × 512 px',
+      modality: isSar ? 'SAR VV/VH' : 'Optical BOA',
+      acquisitionDate: 'Calibrated Scene',
+      sizeMb: Number((sample.size_bytes / (1024 * 1024)).toFixed(1)) || 1.2,
+      validationStatus: isSar ? 'Valid SAR C-Band' : 'Valid GeoTIFF',
+      previewVisual: isSar
+        ? 'linear-gradient(135deg, #020617 0%, #0f172a 40%, #1e293b 100%)'
+        : 'linear-gradient(135deg, #134e4a 0%, #065f46 45%, #0284c7 100%)',
+      previewUrl: sample.preview_url,
+      serverPath: sample.name || sample.path
+    };
+    onAddImage(stagedImg);
+  };
+
+
   return (
     <div className="space-y-6">
       {/* Auto-Detected Analysis Mode Indicator */}
@@ -190,6 +227,65 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Quick Select from Server Imagery & Datasets */}
+      {availableSamples.length > 0 && (
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="w-3.5 h-3.5 text-cyan-500" />
+              <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 uppercase">
+                Server Datasets & Rasters ({availableSamples.length} available)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSamplePicker(!showSamplePicker)}
+              className="text-xs font-mono text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 font-semibold"
+            >
+              {showSamplePicker ? 'Hide Datasets ▲' : 'Browse & Stage Datasets ▼'}
+            </button>
+          </div>
+
+          {showSamplePicker && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1 max-h-56 overflow-y-auto pr-1">
+              {availableSamples.map((sample) => (
+                <button
+                  key={sample.id}
+                  type="button"
+                  onClick={() => handleStageSample(sample)}
+                  className="p-2.5 rounded-lg bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/70 hover:border-cyan-400 hover:shadow-sm transition-all text-left flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-2.5 truncate">
+                    {sample.preview_url ? (
+                      <img
+                        src={sample.preview_url}
+                        alt={sample.label}
+                        className="w-8 h-8 rounded object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded bg-cyan-500/10 text-cyan-500 font-mono text-[9px] font-bold flex items-center justify-center shrink-0">
+                        SAT
+                      </div>
+                    )}
+                    <div className="truncate">
+                      <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                        {sample.label}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                        {sample.modality}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0">
+                    + Stage
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Format Error Alert */}
       {errorMessage && (

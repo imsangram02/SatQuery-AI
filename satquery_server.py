@@ -11,7 +11,7 @@ from pathlib import Path
 import shutil
 import sys
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
@@ -79,15 +79,23 @@ def ensure_preview_png(file_path: Path) -> Optional[str]:
         return None
     ext = file_path.suffix.lower()
     if ext in {".png", ".jpg", ".jpeg", ".bmp", ".webp"}:
-        rel_folder = file_path.parent.name
-        return f"/api/inputs/{rel_folder}/{file_path.name}"
+        try:
+            rel = file_path.resolve().relative_to(INPUTS_DIR.resolve()).as_posix()
+            return f"/api/inputs/{rel}"
+        except Exception:
+            rel_folder = file_path.parent.name
+            return f"/api/inputs/{rel_folder}/{file_path.name}"
 
     if ext in {".tif", ".tiff"}:
         preview_name = f"{file_path.stem}_preview.png"
         preview_path = file_path.parent / preview_name
         if preview_path.exists():
-            rel_folder = preview_path.parent.name
-            return f"/api/inputs/{rel_folder}/{preview_name}"
+            try:
+                rel = preview_path.resolve().relative_to(INPUTS_DIR.resolve()).as_posix()
+                return f"/api/inputs/{rel}"
+            except Exception:
+                rel_folder = preview_path.parent.name
+                return f"/api/inputs/{rel_folder}/{preview_name}"
 
         try:
             from PIL import Image
@@ -145,8 +153,12 @@ def ensure_preview_png(file_path: Path) -> Optional[str]:
                 img.thumbnail((512, 512), Image.Resampling.BILINEAR)
             img.save(preview_path, format="PNG")
 
-            rel_folder = preview_path.parent.name
-            return f"/api/inputs/{rel_folder}/{preview_name}"
+            try:
+                rel = preview_path.resolve().relative_to(INPUTS_DIR.resolve()).as_posix()
+                return f"/api/inputs/{rel}"
+            except Exception:
+                rel_folder = preview_path.parent.name
+                return f"/api/inputs/{rel_folder}/{preview_name}"
         except Exception as exc:
             print(f"Warning: Failed to generate preview for {file_path.name}: {exc}")
             return None
@@ -365,18 +377,24 @@ def analyze_query():
         p_path = Path(image_path_str)
         if p_path.is_absolute() and p_path.exists():
             primary_path = p_path
+        elif (INPUTS_DIR / image_path_str).exists():
+            primary_path = INPUTS_DIR / image_path_str
         elif (UPLOADS_DIR / image_path_str).exists():
             primary_path = UPLOADS_DIR / image_path_str
         elif (SAMPLES_DIR / image_path_str).exists():
             primary_path = SAMPLES_DIR / image_path_str
         elif (REPO_ROOT / image_path_str).exists():
             primary_path = REPO_ROOT / image_path_str
+        else:
+            matches = list(INPUTS_DIR.rglob(image_path_str)) or list(INPUTS_DIR.rglob(Path(image_path_str).name))
+            if matches:
+                primary_path = matches[0]
 
     # Intelligent fallback for prototype presets or missing files
     if not primary_path or not primary_path.exists():
         img_str_low = (image_path_str or "").lower()
         if "sar" in img_str_low or "s1" in img_str_low:
-            cand = SAMPLES_DIR / "sentinel1_godavari_sar.tif"
+            cand = (UPLOADS_DIR / "SAR" / "0A.tif") if (UPLOADS_DIR / "SAR" / "0A.tif").exists() else (SAMPLES_DIR / "sentinel1_godavari_sar.tif")
         elif "post" in img_str_low or "2025" in img_str_low or "t1" in img_str_low:
             cand = SAMPLES_DIR / "sentinel2_godavari_post.tif"
         elif "urban" in (query_text or "").lower() and (SAMPLES_DIR / "sample_urban.png").exists():
@@ -397,6 +415,8 @@ def analyze_query():
         sec_p = Path(secondary_path_str)
         if sec_p.is_absolute() and sec_p.exists():
             secondary_path = sec_p
+        elif (INPUTS_DIR / secondary_path_str).exists():
+            secondary_path = INPUTS_DIR / secondary_path_str
         elif (UPLOADS_DIR / secondary_path_str).exists():
             secondary_path = UPLOADS_DIR / secondary_path_str
         elif (SAMPLES_DIR / secondary_path_str).exists():
@@ -404,11 +424,15 @@ def analyze_query():
         elif (REPO_ROOT / secondary_path_str).exists():
             secondary_path = REPO_ROOT / secondary_path_str
         else:
-            sec_str_low = secondary_path_str.lower()
-            if "sar" in sec_str_low or "s1" in sec_str_low:
-                secondary_path = SAMPLES_DIR / "sentinel1_godavari_sar.tif"
+            matches = list(INPUTS_DIR.rglob(secondary_path_str)) or list(INPUTS_DIR.rglob(Path(secondary_path_str).name))
+            if matches:
+                secondary_path = matches[0]
             else:
-                secondary_path = SAMPLES_DIR / "sentinel2_godavari_post.tif"
+                sec_str_low = secondary_path_str.lower()
+                if "sar" in sec_str_low or "s1" in sec_str_low:
+                    secondary_path = SAMPLES_DIR / "sentinel1_godavari_sar.tif"
+                else:
+                    secondary_path = SAMPLES_DIR / "sentinel2_godavari_post.tif"
 
     # Auto-detect if secondary image is required by query intent
     if not secondary_path and query_text:
@@ -665,6 +689,7 @@ def list_samples():
                 "recommendedTask": "grounding",
             })
             preview_url = ensure_preview_png(f)
+            rel = f.resolve().relative_to(INPUTS_DIR.resolve()).as_posix()
             samples.append({
                 "id": f.stem,
                 "name": f.name,
@@ -674,7 +699,7 @@ def list_samples():
                 "recommendedTask": meta["recommendedTask"],
                 "size_bytes": f.stat().st_size,
                 "path": str(f),
-                "url": f"/api/inputs/samples/{f.name}",
+                "url": f"/api/inputs/{rel}",
                 "preview_url": preview_url,
             })
 
@@ -685,6 +710,7 @@ def list_samples():
         p = UPLOADS_DIR / extra_name
         if p.exists():
             preview_url = ensure_preview_png(p)
+            rel = p.resolve().relative_to(INPUTS_DIR.resolve()).as_posix()
             samples.append({
                 "id": p.stem,
                 "name": p.name,
@@ -694,25 +720,55 @@ def list_samples():
                 "recommendedTask": "change-analysis",
                 "size_bytes": p.stat().st_size,
                 "path": str(p),
-                "url": f"/api/inputs/uploads/{p.name}",
+                "url": f"/api/inputs/{rel}",
                 "preview_url": preview_url,
             })
+
+    # Add available user dataset scenes from uploads (RGB, SAR, NDVI)
+    dataset_configs = [
+        ("RGB", "Optical RGB (3 Bands)", "grounding", "RGB surface reflectance"),
+        ("SAR", "Sentinel-1 SAR C-Band", "grounding", "Cloud-penetrating radar backscatter"),
+        ("NDVI", "Normalized Difference Vegetation Index", "vqa", "Calibrated vegetation index"),
+    ]
+    for folder_name, modality_label, task, desc in dataset_configs:
+        folder = UPLOADS_DIR / folder_name
+        if folder.exists():
+            for f in sorted(list(folder.glob("*.tif"))):
+                if f.name in {"0A.tif", "0B.tif", "1A.tif", "1B.tif"}:
+                    preview_url = ensure_preview_png(f)
+                    rel = f.resolve().relative_to(INPUTS_DIR.resolve()).as_posix()
+                    samples.append({
+                        "id": f"{folder_name.lower()}_{f.stem}",
+                        "name": f"{folder_name}/{f.name}",
+                        "label": f"{folder_name} Scene {f.name}",
+                        "modality": modality_label,
+                        "description": f"{folder_name} scene {f.name} ({desc}).",
+                        "recommendedTask": task,
+                        "size_bytes": f.stat().st_size,
+                        "path": str(f),
+                        "url": f"/api/inputs/{rel}",
+                        "preview_url": preview_url,
+                    })
 
     return jsonify({"samples": samples, "count": len(samples)})
 
 
 @app.route("/api/uploads", methods=["GET"])
 def list_uploads():
-    """List available uploaded satellite images in data/inputs/uploads/."""
+    """List available uploaded satellite images in data/inputs/uploads/ including subfolders."""
     uploads = []
-    for f in sorted(list(UPLOADS_DIR.glob("*.*")), reverse=True):
+    for f in sorted(list(UPLOADS_DIR.rglob("*.*")), reverse=True):
         if allowed_file(f.name) and not f.name.endswith("_preview.png"):
             preview_url = ensure_preview_png(f)
+            rel_path = f.resolve().relative_to(INPUTS_DIR.resolve()).as_posix()
+            subfolder = f.parent.name if f.parent != UPLOADS_DIR else "root"
             uploads.append({
                 "name": f.name,
+                "relative_path": rel_path,
+                "folder": subfolder,
                 "size_bytes": f.stat().st_size,
                 "path": str(f),
-                "url": f"/api/inputs/uploads/{f.name}",
+                "url": f"/api/inputs/{rel_path}",
                 "preview_url": preview_url,
             })
     return jsonify({"uploads": uploads, "count": len(uploads)})
@@ -763,24 +819,22 @@ def list_reports():
     return jsonify({"reports": reports, "count": len(reports)})
 
 
-@app.route("/api/outputs/<folder>/<filename>", methods=["GET"])
-def serve_output(folder: str, filename: str):
-    """Serve generated prediction output images and reports."""
-    safe_folder = secure_filename(folder)
-    target_dir = OUTPUTS_DIR / safe_folder
-    if not target_dir.exists():
-        return jsonify({"error": "Folder not found"}), 404
-    return send_from_directory(target_dir, filename)
+@app.route("/api/outputs/<path:filepath>", methods=["GET"])
+def serve_output(filepath: str):
+    """Serve generated prediction output images and reports supporting nested subfolders."""
+    target_file = (OUTPUTS_DIR / filepath).resolve()
+    if not target_file.exists() or not str(target_file).startswith(str(OUTPUTS_DIR.resolve())):
+        return jsonify({"error": "File not found"}), 404
+    return send_from_directory(target_file.parent, target_file.name)
 
 
-@app.route("/api/inputs/<folder>/<filename>", methods=["GET"])
-def serve_input(folder: str, filename: str):
-    """Serve uploaded or sample input images."""
-    safe_folder = secure_filename(folder)
-    target_dir = INPUTS_DIR / safe_folder
-    if not target_dir.exists():
-        return jsonify({"error": "Folder not found"}), 404
-    return send_from_directory(target_dir, filename)
+@app.route("/api/inputs/<path:filepath>", methods=["GET"])
+def serve_input(filepath: str):
+    """Serve uploaded or sample input images supporting nested subfolders."""
+    target_file = (INPUTS_DIR / filepath).resolve()
+    if not target_file.exists() or not str(target_file).startswith(str(INPUTS_DIR.resolve())):
+        return jsonify({"error": "File not found"}), 404
+    return send_from_directory(target_file.parent, target_file.name)
 
 
 if __name__ == "__main__":

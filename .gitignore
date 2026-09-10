@@ -1,4 +1,4 @@
-﻿# Python bytecode & cache
+# Python bytecode & cache
 __pycache__/
 *.py[cod]
 *$py.class
@@ -24,6 +24,8 @@ data/outputs/reports/*
 
 # Temporary uploads and preview caches
 data/inputs/uploads/*_preview.png
+data/inputs/uploads/**/*_preview.png
+data/inputs/uploads/upload_*
 
 # Node & Frontend build
 node_modules/

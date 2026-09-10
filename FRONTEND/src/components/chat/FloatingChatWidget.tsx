@@ -15,6 +15,7 @@ import {
 import { ChatMessage, AOIPreset, Screen } from '../../types';
 import { MOCK_AOI_PRESETS } from '../../data/mockData';
 import { OrbitMascot } from '../mascot/OrbitMascot';
+import { SatQueryApiService } from '../../services/apiService';
 
 interface FloatingChatWidgetProps {
   onNavigateToWorkspace: (aoi?: AOIPreset) => void;
@@ -82,7 +83,29 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
     setInputQuery('');
     setIsProcessing(true);
 
-    setTimeout(() => {
+    const livePromise = SatQueryApiService.sendChat(query);
+
+    setTimeout(async () => {
+      const liveRes = await livePromise;
+      if (liveRes && liveRes.reply) {
+        const agentMsg: ChatMessage = {
+          id: `a-${Date.now()}`,
+          sender: 'agent',
+          timestamp: 'Just now',
+          text: liveRes.reply,
+          traces: (liveRes.traces as any) || [],
+          groundedStats: liveRes.groundedStats,
+          suggestedAction: (liveRes.suggestedAction as any) || {
+            label: 'Open in Geospatial Canvas',
+            actionType: 'open-workspace',
+            targetAOIId: MOCK_AOI_PRESETS[0].id
+          }
+        };
+        setMessages(prev => [...prev, agentMsg]);
+        setIsProcessing(false);
+        return;
+      }
+
       const isAmazon = query.toLowerCase().includes('amazon') || query.toLowerCase().includes('canopy');
       const isFormula = query.toLowerCase().includes('ndvi') || query.toLowerCase().includes('formula');
 
@@ -110,7 +133,7 @@ export const FloatingChatWidget: React.FC<FloatingChatWidgetProps> = ({
 
       setMessages(prev => [...prev, agentMsg]);
       setIsProcessing(false);
-    }, 900);
+    }, 400);
   };
 
   return (

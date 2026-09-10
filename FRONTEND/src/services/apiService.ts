@@ -216,6 +216,32 @@ export class SatQueryApiService {
   }
 
   /**
+   * Fetch all uploaded rasters and datasets in data/inputs/uploads.
+   */
+  static async getUploads(): Promise<Array<{
+    name: string;
+    relative_path?: string;
+    folder?: string;
+    size_bytes: number;
+    path: string;
+    url: string;
+    preview_url?: string;
+  }>> {
+    try {
+      const res = await fetch(this.getFullUrl('/api/uploads'));
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.uploads || []).map((u: any) => ({
+        ...u,
+        preview_url: u.preview_url ? this.getFullUrl(u.preview_url) : undefined,
+        url: this.getFullUrl(u.url),
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Upload an image directly to the backend.
    */
   static async uploadFile(file: File): Promise<{
