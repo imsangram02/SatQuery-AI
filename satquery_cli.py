@@ -67,97 +67,77 @@ def upload_image_to_workspace(image_path: Union[str, Path], upload_dir: Path) ->
     return dest_path
 
 
-def format_table_row(col1: str, col2: str, width1: int = 30, width2: int = 48) -> str:
-    return f"  │ {col1:<{width1}} │ {col2:<{width2}} │"
-
-
-def format_table_divider(width1: int = 30, width2: int = 48, sep_char: str = "─") -> str:
-    return f"  ├─{sep_char * width1}─┼─{sep_char * width2}─┤"
-
-
 def display_results_in_cli(output: EngineOutput) -> None:
-    """Print beautifully structured results, metrics, and artifact locations in the CLI."""
+    """Print streamlined, high-signal results, artifact generation status, and image explanation."""
     stats = output.statistics
     audit = output.audit_trace
     artifacts = output.artifacts
 
     verdict_icons = {
-        "VERIFIED": "🟢 VERIFIED (Physically Grounded)",
+        "VERIFIED": "🟢 VERIFIED (Spectrally Grounded)",
         "PARTIAL": "🟡 PARTIAL (Spectral Inconsistency Detected)",
         "REJECTED": "🔴 REJECTED (Physics Sanity Check Failed)",
     }
     verdict_text = verdict_icons.get(audit.verdict, f"⚪ {audit.verdict}")
-
-    print("\n" + "─" * 82)
-    print("  📊 PREDICTION RESULTS & QUANTITATIVE ANALYTICS")
-    print("─" * 82)
-    print(f"  ┌{'─' * 32}┬{'─' * 46}┐")
-    print(format_table_row("Metric", "Value", 30, 44))
-    print(format_table_divider(30, 44))
-    print(format_table_row("Target Classification", str(stats.get("specialist_metadata", {}).get("target_class", "Target Entity")), 30, 44))
-    print(format_table_row("Delineated Surface Area", f"{stats.get('area_hectares', 0.0):.2f} hectares", 30, 44))
-    print(format_table_row("Detected Pixels", f"{stats.get('detected_pixel_count', 0):,} px", 30, 44))
-    print(format_table_row("Scene Coverage", f"{stats.get('coverage_percentage', 0.0):.2f}%", 30, 44))
-    print(format_table_row("Mean Model Confidence", f"{stats.get('mean_probability', 0.0) * 100.0:.1f}%", 30, 44))
-    print(format_table_row("Routed Task Specialization", str(output.task_type.value), 30, 44))
-    print(format_table_row("Agentic Controller Decoder", str(getattr(audit, "controller_model", "Qwen3-VL-7B (BigEarthNet LoRA)")), 30, 44))
-    print(format_table_row("Neural Specialist Backbone", str(audit.specialist_model), 30, 44))
-    print(format_table_row("Inference & Reasoning Time", f"{audit.execution_time_ms:.1f} ms", 30, 44))
-    print(format_table_row("Physics Grounding Verdict", verdict_text, 30, 44))
-    print(f"  └{'─' * 32}┴{'─' * 46}┘")
-
-    # Physics Verification Table
-    if audit.physics_checks:
-        print("\n  🔬 DETERMINISTIC PHYSICS GROUNDING CHECKS:")
-        for check in audit.physics_checks:
-            status_str = "✅ PASS" if check.passed else "⚠️ FLAGGED"
-            print(f"    • {check.index_name:<6} : {status_str} | Agreement: {check.coverage_percentage:.1f}% | Mean: {check.mean_value:.3f} | Bounds: [{check.min_value:.3f}, {check.max_value:.3f}]")
-            if check.discrepancy_note:
-                print(f"      ↳ Note: {check.discrepancy_note}")
-
-    # Bounding Box Grounding Table
     boxes = stats.get("bounding_boxes", [])
-    if boxes:
-        print("\n  🎯 PRECISE BOUNDING BOX GROUNDINGS & LOCALIZED TARGETS:")
-        print(f"  ┌{'─' * 8}┬{'─' * 18}┬{'─' * 28}┬{'─' * 12}┬{'─' * 8}┐")
-        print(f"  │ {'ID':<6} │ {'Sector':<16} │ {'Pixel Box [x0,y0,x1,y1]':<26} │ {'Area':<10} │ {'Conf':<6} │")
-        print(f"  ├{'─' * 8}┼{'─' * 18}┼{'─' * 28}┼{'─' * 12}┼{'─' * 8}┤")
-        for b in boxes:
-            b_id = b.get("id", "")
-            sector = b.get("sector", "Central")
-            pbox = str(b.get("pixel_box", [b.get("x"), b.get("y"), b.get("width"), b.get("height")]))
-            b_ha = f"{b.get('area_hectares', 0.0):.1f} ha" if 'area_hectares' in b else f"{b.get('pixel_count', 0)} px"
-            b_conf = f"{b.get('confidence', 0)}%"
-            print(f"  │ {b_id:<6} │ {sector:<16} │ {pbox:<26} │ {b_ha:<10} │ {b_conf:<6} │")
-        print(f"  └{'─' * 8}┴{'─' * 18}┴{'─' * 28}┴{'─' * 12}┴{'─' * 8}┘")
-    if artifacts:
-        print("\n" + "─" * 82)
-        print("  📁 STORAGE & GENERATED FILE ARTIFACT LOCATIONS")
-        print("─" * 82)
-        print(f"  ┌{'─' * 28}┬{'─' * 50}┐")
-        print(format_table_row("Artifact Description", "File Storage Location", 26, 48))
-        print(format_table_divider(26, 48))
-        print(format_table_row("Input Image Uploaded", str(Path(artifacts.input_image_path).name), 26, 48))
-        print(format_table_row("  ↳ Full Input Path", str(artifacts.input_image_path), 26, 48))
-        if artifacts.secondary_image_path:
-            print(format_table_row("Secondary Image", str(artifacts.secondary_image_path), 26, 48))
-        print(format_table_divider(26, 48, "─"))
-        print(format_table_row("Output Mask Image", str(artifacts.mask_image_path), 26, 48))
-        print(format_table_row("Output Heatmap Image", str(artifacts.heatmap_image_path), 26, 48))
-        print(format_table_row("Output Visual Overlay", str(artifacts.overlay_image_path), 26, 48))
-        print(format_table_row("RFC 7946 Vector GeoJSON", str(artifacts.geojson_path), 26, 48))
-        print(format_table_divider(26, 48, "─"))
-        print(format_table_row("JSON Analytical Report", str(artifacts.report_json_path), 26, 48))
-        print(format_table_row("Markdown Audit Report", str(artifacts.report_markdown_path), 26, 48))
-        print(f"  └{'─' * 28}┴{'─' * 50}┘")
+    target_class = str(stats.get("specialist_metadata", {}).get("target_class", "Target Feature")).replace("_", " ").title()
 
-    # Natural Language Summary
+    # 1. Artifact Generation Status
+    print("\n" + "═" * 82)
+    print("  📁 GENERATED ARTIFACTS STATUS")
+    print("═" * 82)
+    if artifacts:
+        items = [
+            ("Binary Mask Image", artifacts.mask_image_path),
+            ("Probability Heatmap Image", artifacts.heatmap_image_path),
+            ("Visual Evidence Overlay", artifacts.overlay_image_path),
+            ("Vector GeoJSON (RFC 7946)", artifacts.geojson_path),
+            ("JSON Analytical Data", artifacts.report_json_path),
+            ("Markdown Audit Report", artifacts.report_markdown_path),
+        ]
+        for name, p_str in items:
+            if p_str:
+                p = Path(p_str)
+                try:
+                    rel = p.relative_to(REPO_ROOT)
+                except ValueError:
+                    rel = p.name
+                status = "✓ GENERATED" if p.exists() else "✗ PENDING"
+                icon = "🟢" if p.exists() else "🔴"
+                print(f"  {icon} [{status}] {name:<26} : {rel}")
+            else:
+                print(f"  ⚪ [NOT REQUESTED] {name:<26}")
+    else:
+        print("  ⚠️  Artifact generation was disabled for this execution.")
+
+    # 2. Key Specifications & Quantitative Analytics
     print("\n" + "─" * 82)
-    print("  💬 NATURAL LANGUAGE SYNTHESIS & FORENSIC AUDIT")
+    print("  📊 SPECIFICATIONS & QUANTITATIVE ANALYTICS")
+    print("─" * 82)
+    print(f"  • Target Classification  : {target_class}")
+    print(f"  • Delineated Extent      : {stats.get('area_hectares', 0.0):,.2f} hectares ({stats.get('detected_pixel_count', 0):,} px)")
+    print(f"  • Scene Coverage Footprint: {stats.get('coverage_percentage', 0.0):.2f}% of satellite scene")
+    print(f"  • Mean Model Confidence  : {stats.get('mean_probability', 0.0) * 100.0:.1f}%")
+    print(f"  • Task Specialization    : {output.task_type.value}")
+    print(f"  • Specialist Backbone    : {audit.specialist_model}")
+    print(f"  • Physics Grounding      : {verdict_text}")
+    print(f"  • Inference & Reason Time: {audit.execution_time_ms:.1f} ms (100% Offline Edge)")
+
+    if boxes:
+        sectors = ", ".join(sorted(list(set(b.get("sector", "Central") for b in boxes))))
+        print(f"  • Localized Core Targets : {len(boxes)} distinct regions ({sectors})")
+
+    if audit.physics_checks:
+        checks_summary = ", ".join([f"{c.index_name} ({'PASS' if c.passed else 'FLAGGED'}, {c.coverage_percentage:.0f}% agrmt)" for c in audit.physics_checks])
+        print(f"  • Radiometric Checks     : {checks_summary}")
+
+    # 3. Comprehensive Natural Language Image Explanation & VQA Answer
+    print("\n" + "─" * 82)
+    print("  💬 COMPREHENSIVE IMAGE EXPLANATION & VQA ANSWER")
     print("─" * 82)
     for line in output.summary_text.splitlines():
         print(f"  {line}")
-    print("=" * 82 + "\n")
+    print("═" * 82 + "\n")
 
 
 def run_cli() -> None:
@@ -345,16 +325,14 @@ def run_cli() -> None:
         print(f"💬 Auto-formulated query: '{args.query}'")
 
     # Initialize Engine
-    print("\n⏳ Initializing SatQuery AI Engine & Ingestion Pipeline...")
     engine = SatQueryEngine(default_crs="EPSG:4326")
 
     uploaded_primary_path: Path
     uploaded_secondary_path: Optional[Path] = None
 
     if args.image:
-        print(f"📥 Uploading & indexing primary raster: {args.image}")
+        print(f"📥 Ingesting primary satellite raster: {Path(args.image).name}")
         uploaded_primary_path = upload_image_to_workspace(args.image, upload_dir)
-        print(f"  ✓ Stored at: {uploaded_primary_path}")
 
         req = QueryRequest(
             query_text=args.query,
@@ -363,9 +341,8 @@ def run_cli() -> None:
             enable_physics_verification=not args.no_physics,
         )
     elif args.pre and args.post:
-        print(f"📥 Uploading bi-temporal pre-event raster: {args.pre}")
+        print(f"📥 Ingesting bi-temporal pair: {Path(args.pre).name} & {Path(args.post).name}")
         uploaded_primary_path = upload_image_to_workspace(args.pre, upload_dir)
-        print(f"📥 Uploading bi-temporal post-event raster: {args.post}")
         uploaded_secondary_path = upload_image_to_workspace(args.post, upload_dir)
 
         req = QueryRequest(
@@ -376,9 +353,8 @@ def run_cli() -> None:
             enable_physics_verification=not args.no_physics,
         )
     elif args.optical and args.sar:
-        print(f"📥 Uploading optical raster: {args.optical}")
+        print(f"📥 Ingesting cross-modal pair: {Path(args.optical).name} (Optical) & {Path(args.sar).name} (SAR)")
         uploaded_primary_path = upload_image_to_workspace(args.optical, upload_dir)
-        print(f"📥 Uploading SAR raster: {args.sar}")
         uploaded_secondary_path = upload_image_to_workspace(args.sar, upload_dir)
 
         req = QueryRequest(
@@ -392,7 +368,7 @@ def run_cli() -> None:
         print("⚠️ Invalid arguments. Run with --help for documentation.")
         return
 
-    print("🧠 Executing neural specialist inference & deterministic physics verification...")
+    print("🧠 Running neural specialist inference & deterministic physics verification...")
     output = engine.execute_query(req, save_artifacts=True)
 
     # Print full CLI results

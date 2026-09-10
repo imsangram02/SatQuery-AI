@@ -11,6 +11,13 @@ import sys
 import tempfile
 from typing import Tuple
 
+# Force UTF-8 encoding on Windows console
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 import numpy as np
 
 try:

@@ -13,7 +13,14 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from scipy.ndimage import label, find_objects, binary_opening, binary_closing
+from scipy.ndimage import (
+    binary_closing,
+    binary_erosion,
+    binary_opening,
+    distance_transform_edt,
+    find_objects,
+    label,
+)
 
 from satquery_core.src.ingestion.geotiff_loader import GeoTIFFData
 
@@ -191,13 +198,20 @@ class ArtifactVisualizer:
             # Draw solid bounding rectangle with 3px border
             draw.rectangle([(cmin, rmin), (cmax, rmax)], outline=(color[0], color[1], color[2]), width=3)
 
-            # Draw prominent label badge above box
+            # Draw prominent label badge above box (or inside if near top boundary)
             tag = f" {b['label']} • {b['sector']} "
-            tag_w = len(tag) * 8 + 8
-            tag_h = 20
-            box_top = max(0, rmin - tag_h)
-            draw.rectangle([(cmin, box_top), (min(w, cmin + tag_w), rmin)], fill=(color[0], color[1], color[2]))
-            draw.text((cmin + 4, box_top + 2), tag, fill=(255, 255, 255))
+            tag_w = len(tag) * 7 + 10
+            tag_h = 18
+            if rmin >= tag_h + 2:
+                box_top = rmin - tag_h
+                box_bottom = rmin
+            else:
+                box_top = rmin
+                box_bottom = rmin + tag_h
+
+            tag_right = min(w, cmin + tag_w)
+            draw.rectangle([(cmin, box_top), (tag_right, box_bottom)], fill=(color[0], color[1], color[2]))
+            draw.text((cmin + 3, box_top + 2), tag, fill=(255, 255, 255))
 
         # Bottom HUD Status Banner
         banner_h = 42
@@ -226,59 +240,135 @@ class ArtifactVisualizer:
         confidence: float = 0.88,
         prob_map: Optional[np.ndarray] = None,
         max_boxes: int = 6,
-        min_pixels: int = 150,
+        min_pixels: int = 120,
     ) -> List[Dict[str, Any]]:
         """
         Extract precise, localized bounding boxes for grounded target regions.
-        Applies morphological filtering to eliminate noise filaments and extracts tight bounds,
-        spatial sectors (e.g. Northwest, Central), pixel coordinates, and local confidence.
+        Applies adaptive core clustering, solidity gating, and IoU/containment suppression
+        to prevent oversized canvas-spanning boxes and redundant nested duplicates.
         """
         h, w = binary_mask.shape
-        if np.sum(binary_mask) == 0:
+        total_pixels = h * w
+        pos_pixels = int(np.sum(binary_mask))
+        if pos_pixels == 0:
             return []
 
-        # Adaptive minimum pixel threshold (at least min_pixels or 0.02% of scene)
-        adaptive_min = max(min_pixels, int(h * w * 0.0002))
+        # Adaptive minimum pixel threshold (at least min_pixels or 0.03% of scene)
+        adaptive_min = max(min_pixels, int(total_pixels * 0.0003))
 
-        # Morphological opening disconnects thin 1-pixel bridges between disparate regions
-        struct_open = np.ones((5, 5), dtype=bool)
+        # Check if the mask has sprawling high-coverage (> 18% of scene)
+        coverage_ratio = pos_pixels / total_pixels
+        use_core_clustering = coverage_ratio > 0.18
+
+        # 1. Clean mask with opening / closing
+        struct_open = np.ones((3, 3), dtype=bool)
         struct_close = np.ones((3, 3), dtype=bool)
         cleaned = binary_opening(binary_mask, structure=struct_open)
         cleaned = binary_closing(cleaned, structure=struct_close)
 
+        candidate_masks = []
+
+        # Find connected components from cleaned mask
         labeled_mask, num_features = label(cleaned)
         if num_features == 0:
             labeled_mask, num_features = label(binary_mask)
-            if num_features == 0:
-                return []
+            num_features = int(num_features)
 
-        component_sizes = np.bincount(labeled_mask.ravel())
-        # Sort components by actual non-zero pixel mass descending (skip 0=background)
-        sorted_indices = np.argsort(component_sizes[1:])[::-1] + 1
+        if num_features > 0:
+            component_sizes = np.bincount(labeled_mask.ravel())
+            for comp_idx in range(1, num_features + 1):
+                cnt = int(component_sizes[comp_idx])
+                if cnt < adaptive_min:
+                    continue
+
+                comp_mask = (labeled_mask == comp_idx)
+                rows = np.any(comp_mask, axis=1)
+                cols = np.any(comp_mask, axis=0)
+                if not np.any(rows) or not np.any(cols):
+                    continue
+
+                box_w = int(np.where(cols)[0][-1] - np.where(cols)[0][0] + 1)
+                box_h = int(np.where(rows)[0][-1] - np.where(rows)[0][0] + 1)
+                box_area = box_w * box_h
+
+                # If the component is sprawling (covers > 35% of image or box occupies > 60% of both axes),
+                # do NOT add this giant bounding box! Instead, decompose it into localized structural clusters.
+                if box_area > 0.35 * total_pixels or (box_w > 0.60 * w and box_h > 0.60 * h):
+                    eroded = binary_erosion(comp_mask, structure=np.ones((4, 4), dtype=bool), iterations=2)
+                    if not np.any(eroded):
+                        eroded = binary_erosion(comp_mask, structure=np.ones((3, 3), dtype=bool), iterations=1)
+                    labeled_sub, num_sub = label(eroded)
+                    if num_sub > 0:
+                        sub_sizes = np.bincount(labeled_sub.ravel())
+                        for sub_idx in range(1, num_sub + 1):
+                            sub_cnt = int(sub_sizes[sub_idx])
+                            if sub_cnt >= max(30, adaptive_min // 3):
+                                candidate_masks.append(((labeled_sub == sub_idx), sub_cnt))
+                    else:
+                        candidate_masks.append((comp_mask, cnt))
+                else:
+                    candidate_masks.append((comp_mask, cnt))
+
+        # Also extract probability density cores if available
+        if prob_map is not None:
+            pos_probs = prob_map[cleaned] if np.any(cleaned) else prob_map[binary_mask]
+            if len(pos_probs) > 0:
+                core_thresh = float(np.percentile(pos_probs, 75))
+                core_mask = (prob_map >= core_thresh) & cleaned
+                core_mask = binary_opening(core_mask, structure=np.ones((3, 3), dtype=bool))
+                labeled_core, num_cores = label(core_mask)
+                if num_cores > 0:
+                    core_sizes = np.bincount(labeled_core.ravel())
+                    for c_id in range(1, num_cores + 1):
+                        c_cnt = int(core_sizes[c_id])
+                        if c_cnt >= max(40, adaptive_min // 2):
+                            candidate_masks.append(((labeled_core == c_id), c_cnt))
+
+        if not candidate_masks:
+            return []
 
         color_tuple = cls.get_class_color(label_text)
         hex_color = f"#{color_tuple[0]:02x}{color_tuple[1]:02x}{color_tuple[2]:02x}"
 
-        boxes = []
-        rank = 0
-        for comp_idx in sorted_indices:
-            cnt = int(component_sizes[comp_idx])
-            if cnt < adaptive_min:
-                continue
+        raw_boxes = []
 
-            comp_mask = (labeled_mask == comp_idx)
+        for comp_mask, cnt in candidate_masks:
             rows = np.any(comp_mask, axis=1)
             cols = np.any(comp_mask, axis=0)
             if not np.any(rows) or not np.any(cols):
                 continue
 
-            rmin, rmax = int(np.where(rows)[0][0]), int(np.where(rows)[0][-1])
-            cmin, cmax = int(np.where(cols)[0][0]), int(np.where(cols)[0][-1])
-            box_w = cmax - cmin + 1
-            box_h = rmax - rmin + 1
+            row_indices = np.where(rows)[0]
+            col_indices = np.where(cols)[0]
+
+            # Robust coordinate percentiles to avoid single-pixel noise tails
+            if cnt > 150:
+                all_r, all_c = np.where(comp_mask)
+                rmin = int(np.percentile(all_r, 1.0))
+                rmax = int(np.percentile(all_r, 99.0))
+                cmin = int(np.percentile(all_c, 1.0))
+                cmax = int(np.percentile(all_c, 99.0))
+            else:
+                rmin, rmax = int(row_indices[0]), int(row_indices[-1])
+                cmin, cmax = int(col_indices[0]), int(col_indices[-1])
+
+            box_w = max(1, cmax - cmin + 1)
+            box_h = max(1, rmax - rmin + 1)
+            box_area = box_w * box_h
+
+            # Solidity filter: ratio of actual target pixels to bounding box area
+            solidity = float(cnt / box_area)
+
+            # Suppress giant sprawling boxes covering > 65% of the scene with low solidity
+            if box_area > 0.65 * total_pixels and solidity < 0.35:
+                continue
+
+            # Minimum box dimension (must be at least 14x14 pixels)
+            if box_w < 14 and box_h < 14:
+                continue
 
             # Compute local per-box confidence
-            if prob_map is not None:
+            if prob_map is not None and np.any(comp_mask):
                 box_conf = float(np.mean(prob_map[comp_mask]))
             else:
                 box_conf = float(confidence)
@@ -293,23 +383,83 @@ class ArtifactVisualizer:
             # Estimated hectares (assuming standard 10m pixel = 0.01 ha)
             box_ha = round(cnt * 0.01, 2)
 
-            rank += 1
-            boxes.append({
-                "id": f"bb-{rank}",
-                "label": f"{label_text.title()} ({round(box_conf * 100)}%)",
-                "sector": sector,
-                "pixel_box": [cmin, rmin, cmax, rmax],  # [x_min, y_min, x_max, y_max]
+            # Composite ranking score: higher confidence, larger salient mass, higher solidity
+            score = box_conf * (cnt ** 0.5) * (0.6 + 0.4 * min(1.0, solidity))
+
+            raw_boxes.append({
+                "pixel_box": [cmin, rmin, cmax, rmax],
                 "pixel_count": cnt,
                 "area_hectares": float(box_ha),
-                "x": round((cmin / w) * 100.0, 1),
-                "y": round((rmin / h) * 100.0, 1),
-                "width": round((box_w / w) * 100.0, 1),
-                "height": round((box_h / h) * 100.0, 1),
-                "color": hex_color,
+                "box_area": box_area,
+                "solidity": round(solidity, 3),
+                "sector": sector,
                 "confidence": round(box_conf * 100),
+                "box_conf_raw": box_conf,
+                "score": score,
+                "cmin": cmin,
+                "rmin": rmin,
+                "box_w": box_w,
+                "box_h": box_h,
             })
 
-            if len(boxes) >= max_boxes:
-                break
+        # Sort raw candidate boxes by score descending
+        raw_boxes.sort(key=lambda b: b["score"], reverse=True)
 
-        return boxes
+        # 2. Non-Maximum Suppression (IoU + Containment suppression)
+        filtered_boxes = []
+        for cand in raw_boxes:
+            c1_min, r1_min, c1_max, r1_max = cand["pixel_box"]
+            a1 = cand["box_area"]
+            suppress = False
+
+            for existing in filtered_boxes:
+                c2_min, r2_min, c2_max, r2_max = existing["pixel_box"]
+                a2 = existing["box_area"]
+
+                # Compute intersection
+                inter_w = max(0, min(c1_max, c2_max) - max(c1_min, c2_min) + 1)
+                inter_h = max(0, min(r1_max, r2_max) - max(r1_min, r2_min) + 1)
+                inter_area = inter_w * inter_h
+
+                if inter_area > 0:
+                    iou = inter_area / max(1, (a1 + a2 - inter_area))
+                    containment1 = inter_area / max(1, a1)
+                    containment2 = inter_area / max(1, a2)
+
+                    # Suppress if high IoU (> 0.35) or if heavily contained (> 0.60 inside existing)
+                    if iou > 0.35 or containment1 > 0.60:
+                        suppress = True
+                        break
+                    # If existing box is heavily contained in candidate but candidate has lower score, suppress candidate
+                    if containment2 > 0.70:
+                        suppress = True
+                        break
+
+            if not suppress:
+                filtered_boxes.append(cand)
+                if len(filtered_boxes) >= max_boxes:
+                    break
+
+        # 3. Format final box objects
+        final_boxes = []
+        for rank, b in enumerate(filtered_boxes, start=1):
+            cmin, rmin, cmax, rmax = b["pixel_box"]
+            bw = b["box_w"]
+            bh = b["box_h"]
+            final_boxes.append({
+                "id": f"bb-{rank}",
+                "label": f"{label_text.title()} ({b['confidence']}%)",
+                "sector": b["sector"],
+                "pixel_box": [cmin, rmin, cmax, rmax],
+                "pixel_count": b["pixel_count"],
+                "area_hectares": b["area_hectares"],
+                "solidity": b["solidity"],
+                "x": round((cmin / w) * 100.0, 1),
+                "y": round((rmin / h) * 100.0, 1),
+                "width": round((bw / w) * 100.0, 1),
+                "height": round((bh / h) * 100.0, 1),
+                "color": hex_color,
+                "confidence": b["confidence"],
+            })
+
+        return final_boxes
