@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { ChatMessage, ExecutionTraceStep, AOIPreset } from '../../types';
 import { OrbitMascot } from '../mascot/OrbitMascot';
+import { SatQueryApiService } from '../../services/apiService';
 
 interface AgentChatboxProps {
   activeAOI: AOIPreset;
@@ -154,9 +155,28 @@ Using multi-temporal Sentinel-2 L2A BOA reflectance (June vs August 2024), we ob
     setInputQuery('');
     setIsProcessing(true);
 
-    // Simulate Agent Observable Execution Trace Pipeline
-    setTimeout(() => {
+    const livePromise = SatQueryApiService.sendChat(textToSend, activeAOI.name);
+
+    setTimeout(async () => {
+      const liveRes = await livePromise;
       const agentResId = `agt-${Date.now()}`;
+
+      if (liveRes && liveRes.reply) {
+        const liveAgentMessage: ChatMessage = {
+          id: agentResId,
+          sender: 'agent',
+          timestamp: new Date().toTimeString().split(' ')[0],
+          text: liveRes.reply,
+          traces: (liveRes.traces as any) || [],
+          groundedStats: liveRes.groundedStats,
+          suggestedAction: (liveRes.suggestedAction as any)
+        };
+        setMessages(prev => [...prev, liveAgentMessage]);
+        setExpandedTraceId(agentResId);
+        setIsProcessing(false);
+        return;
+      }
+
       const agentMessage: ChatMessage = {
         id: agentResId,
         sender: 'agent',

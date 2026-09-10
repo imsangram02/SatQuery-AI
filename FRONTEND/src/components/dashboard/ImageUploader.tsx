@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
   UploadCloud, 
   FileCheck2, 
@@ -10,30 +10,29 @@ import {
   Maximize2, 
   Trash2, 
   Info,
-  AlertCircle
+  AlertCircle,
+  Database,
+  Plus
 } from 'lucide-react';
 import { ImageAnalysisMode, UploadedImageMeta } from '../../types';
-import { AnalysisScenario, MOCK_SCENARIOS } from '../../data/mockData';
+import { SatQueryApiService } from '../../services/apiService';
 
 interface ImageUploaderProps {
   mode: ImageAnalysisMode;
-  onChangeMode: (mode: ImageAnalysisMode) => void;
   images: UploadedImageMeta[];
   onAddImage: (img: UploadedImageMeta) => void;
   onRemoveImage: (id: string) => void;
-  onSelectScenario: (scenario: AnalysisScenario) => void;
 }
 
 export const ImageUploader: React.FC<ImageUploaderProps> = ({
   mode,
-  onChangeMode,
   images,
   onAddImage,
-  onRemoveImage,
-  onSelectScenario
+  onRemoveImage
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -60,7 +59,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
   };
 
-  const processFiles = (fileList: FileList) => {
+  const processFiles = async (fileList: FileList) => {
     setErrorMessage(null);
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
@@ -80,7 +79,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         try {
           previewUrl = URL.createObjectURL(file);
         } catch {
-          // ignore in environments without createObjectURL
+          // ignore
         }
       }
 
@@ -102,79 +101,56 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
         fileObject: file
       };
 
-      onAddImage(newImage);
+      // Upload to server in background to register and create preview
+      setIsUploading(true);
+      SatQueryApiService.uploadFile(file).then(res => {
+        if (res) {
+          newImage.serverPath = res.filename;
+          if (res.preview_url) newImage.previewUrl = res.preview_url;
+        }
+        setIsUploading(false);
+      }).catch(() => setIsUploading(false));
 
+      onAddImage(newImage);
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* 1-Click Benchmark Scenario Quick-Load Bar */}
-      <div className="p-4 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200 dark:border-cyan-500/20 backdrop-blur-md">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-          <div className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
-            <span>QUICK-LOAD BENCHMARK SCENARIOS (1-CLICK TEST)</span>
+      {/* Auto-Detected Analysis Mode Indicator */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                Analysis Mode:
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30">
+                {mode === 'single'
+                  ? 'Single Image Mode (VQA / Grounding)'
+                  : mode === 'bi-temporal'
+                  ? 'Bi-Temporal Mode (T0 & T1 Change Analysis)'
+                  : 'Optical + SAR Cross-Modal Fusion'}
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Auto-Detected
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+              {images.length === 0
+                ? 'System will automatically select neural specialist upon image staging.'
+                : images.length === 1
+                ? 'Single scene detected → Auto-routed to ConvNeXt-v2 Optical/SAR Specialist & Physics Sanity Engine'
+                : mode === 'optical-sar'
+                ? 'Optical + SAR radar pair detected → Auto-routed to 14-Channel ViT Cross-Modal Specialist'
+                : 'Dual temporal scenes detected → Auto-routed to Siamese ResNet-50 Change Detector'}
+            </p>
           </div>
-          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-            Click to auto-stage imagery, prompt & specialist pipeline
-          </span>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {MOCK_SCENARIOS.map((scenario) => (
-            <button
-              key={scenario.id}
-              onClick={() => onSelectScenario(scenario)}
-              className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-cyan-500/10 dark:hover:bg-cyan-950/40 border border-slate-200 dark:border-slate-700 hover:border-cyan-400 text-xs font-mono text-slate-700 dark:text-slate-200 hover:text-cyan-600 dark:hover:text-cyan-300 font-semibold whitespace-nowrap transition-all duration-150 active:scale-95 shadow-xs"
-            >
-              {scenario.title.split(' Analysis')[0]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Dynamic Mode Switcher (Section 17: UI adapts to uploaded images) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <div>
-          <span className="text-xs font-bold text-slate-900 dark:text-white block">
-            Analysis Modality Configuration
-          </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            UI dynamically reconfigures image slots and pipeline based on selected mode
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-          <button
-            onClick={() => onChangeMode('single')}
-            className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${
-              mode === 'single'
-                ? 'bg-cyan-400 text-slate-950 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Single Image
-          </button>
-          <button
-            onClick={() => onChangeMode('bi-temporal')}
-            className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${
-              mode === 'bi-temporal'
-                ? 'bg-cyan-400 text-slate-950 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Bi-Temporal (T0 / T1)
-          </button>
-          <button
-            onClick={() => onChangeMode('optical-sar')}
-            className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${
-              mode === 'optical-sar'
-                ? 'bg-cyan-400 text-slate-950 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Optical + SAR
-          </button>
+        <div className="text-[11px] font-mono text-slate-400 hidden sm:block shrink-0">
+          <span className="text-cyan-500 font-semibold">{images.length}</span> {images.length === 1 ? 'image staged' : 'images staged'}
         </div>
       </div>
 
@@ -194,7 +170,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
           ref={fileInputRef}
           type="file"
           multiple
-          accept=".tif,.tiff"
+          accept=".tif,.tiff,.png,.jpg,.jpeg"
           onChange={handleFileInputChange}
           className="hidden"
         />
@@ -209,16 +185,8 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               Drag & Drop Satellite Imagery Here
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Supports <strong className="text-cyan-600 dark:text-cyan-400">GeoTIFF (.tif, .tiff)</strong> and CEOS SAR C-Band radar imagery.
+              Supports <strong className="text-cyan-600 dark:text-cyan-400">GeoTIFF (.tif, .tiff)</strong>, PNG, and JPG images, or click to browse.
             </p>
-          </div>
-
-          <div className="flex items-center justify-center gap-2 pt-1 text-[11px] font-mono text-slate-400">
-            <span>STAC API v1.0.0</span>
-            <span>•</span>
-            <span>Cloud-Optimized GeoTIFF (COG)</span>
-            <span>•</span>
-            <span>Auto CRS Parsing</span>
           </div>
         </div>
       </div>

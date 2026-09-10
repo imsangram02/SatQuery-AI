@@ -13,6 +13,38 @@ import {
 
 export const MOCK_AOI_PRESETS: AOIPreset[] = [
   {
+    id: 'godavari-flood',
+    name: 'Godavari River Basin Flood Corridor',
+    location: 'Andhra Pradesh / Telangana, India',
+    coordinates: [17.385, 81.785],
+    bounds: [[17.1, 81.4], [17.7, 82.1]],
+    areaKm2: 3420,
+    recommendedSensor: 'sentinel-2',
+    primaryMetric: 'Peak Flood Inundation',
+    metricValue: '71,105 ha (+23.4%)',
+    description: 'Biotemporal dual-pass change detection over the Godavari river basin comparing pre-monsoon baseline to peak flood crest. Verified with deterministic NDWI water physics.',
+    beforeLabel: 'T0 Pre-Flood Baseline (t0_preFlood.tiff)',
+    afterLabel: 'T1 Post-Flood Inundation (t1_postFlood.tiff)',
+    beforeVisual: '/api/inputs/uploads/t0_preFlood_preview.png',
+    afterVisual: '/api/inputs/uploads/t1_postFlood_preview.png'
+  },
+  {
+    id: 'sentinel1-godavari-sar',
+    name: 'Godavari C-Band SAR Penetration',
+    location: 'Godavari Delta, India',
+    coordinates: [17.012, 81.821],
+    bounds: [[16.8, 81.5], [17.3, 82.1]],
+    areaKm2: 2450,
+    recommendedSensor: 'sentinel-1',
+    primaryMetric: 'SAR Specular Attenuation',
+    metricValue: 'VV/VH Ratio: -18.4 dB',
+    description: 'Dual-polarization Sentinel-1 C-SAR radar backscatter (sentinel1_godavari_sar.tif) penetrating heavy monsoonal cloud layers for cloud-free water mapping.',
+    beforeLabel: 'Optical Baseline (S2 Optical)',
+    afterLabel: 'C-Band SAR Radar Detection (S1 SAR)',
+    beforeVisual: '/api/inputs/samples/sentinel2_godavari_pre_preview.png',
+    afterVisual: '/api/inputs/samples/sentinel1_godavari_sar_preview.png'
+  },
+  {
     id: 'amazon-rondonia',
     name: 'Amazon Rainforest (Rondônia Track)',
     location: 'Rondônia, Brazil',

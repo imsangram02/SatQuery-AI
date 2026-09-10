@@ -76,6 +76,42 @@ export const GeospatialCanvas: React.FC<GeospatialCanvasProps> = ({
 
   const [activeTimestamp, setActiveTimestamp] = useState<'T0' | 'T1'>('T1');
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [canvasDimensions, setCanvasDimensions] = useState<{ width: number; height: number }>({ width: 1200, height: 800 });
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const updateSize = () => {
+      if (canvasRef.current) {
+        setCanvasDimensions({
+          width: canvasRef.current.clientWidth,
+          height: canvasRef.current.clientHeight
+        });
+      }
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  const getCanvasBackgroundStyle = (visual: string): React.CSSProperties => {
+    if (!visual) return { background: '#090d16' };
+    if (
+      visual.startsWith('/') ||
+      visual.startsWith('http') ||
+      visual.startsWith('data:') ||
+      visual.includes('.png') ||
+      visual.includes('.tif') ||
+      visual.includes('.jpg')
+    ) {
+      return {
+        backgroundImage: `url(${visual})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      };
+    }
+    return { background: visual };
+  };
 
   // Update HUD coordinates on mouse move
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -147,56 +183,90 @@ export const GeospatialCanvas: React.FC<GeospatialCanvasProps> = ({
         {/* Layer 1: After / AI Inference Layer (Full width underneath) */}
         <div
           className="absolute inset-0 w-full h-full"
-          style={{ background: activeAOI.afterVisual }}
+          style={getCanvasBackgroundStyle(activeTimestamp === 'T0' ? activeAOI.beforeVisual : activeAOI.afterVisual)}
         >
           {/* Detailed synthetic geospatial textures */}
-          <div className="absolute inset-0 geo-grid-pattern opacity-40"></div>
+          <div className="absolute inset-0 geo-grid-pattern opacity-25"></div>
 
           {/* AI Segmentation Feature Polygons & Vector Bounding Boxes */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            {/* Anomaly Box 1 */}
-            <div className="absolute top-[28%] left-[34%] w-[250px] h-[160px] border-2 border-teal-400 bg-teal-500/20 rounded-xl p-3 flex flex-col justify-between shadow-[0_0_20px_rgba(45,212,191,0.3)]">
-              <div className="flex items-center justify-between font-mono text-[10px]">
-                <span className="px-1.5 py-0.5 rounded bg-teal-950 text-teal-300 font-bold border border-teal-500/40">
-                  Canopy Disturbance Corridor Alpha
-                </span>
-                <span className="text-teal-300 font-semibold">48.2 ha</span>
+          {activeAOI.id === 'godavari-flood' || activeAOI.id === 'sentinel1-godavari-sar' ? (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              {/* Anomaly Box 1 - Godavari Inundation Zone */}
+              <div className="absolute top-[22%] left-[26%] w-[320px] h-[220px] border-2 border-cyan-400 bg-cyan-500/20 rounded-xl p-3 flex flex-col justify-between shadow-[0_0_25px_rgba(6,182,212,0.4)] backdrop-blur-[1px]">
+                <div className="flex items-center justify-between font-mono text-[10px]">
+                  <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 font-bold border border-cyan-500/50">
+                    Flood Inundation Crest Delta
+                  </span>
+                  <span className="text-cyan-300 font-bold">71,105 ha</span>
+                </div>
+                <div className="space-y-0.5 text-[10px] font-mono text-cyan-200">
+                  <div>Confidence: 99.1% • Siamese ResNet-50</div>
+                  <div className="text-emerald-400 font-semibold">Physics: NDWI Validated (+0.68)</div>
+                </div>
               </div>
-              <div className="text-[10px] font-mono text-teal-200">
-                Confidence: 98.6% • GeoSAM-Large
-              </div>
-            </div>
 
-            {/* Anomaly Box 2 */}
-            <div className="absolute bottom-[22%] right-[28%] w-[220px] h-[130px] border-2 border-amber-400 bg-amber-500/20 rounded-xl p-3 flex flex-col justify-between shadow-[0_0_20px_rgba(251,191,36,0.3)]">
-              <div className="flex items-center justify-between font-mono text-[10px]">
-                <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 font-bold border border-amber-500/40">
-                  Flood Inundation Crest Zone
-                </span>
-                <span className="text-amber-300 font-semibold">112 ha</span>
-              </div>
-              <div className="text-[10px] font-mono text-amber-200">
-                Depth &gt; 1.2m • Sentinel-1 SAR
+              {/* Anomaly Box 2 - Submerged Cropland Risk */}
+              <div className="absolute bottom-[20%] right-[22%] w-[260px] h-[160px] border-2 border-amber-400 bg-amber-500/20 rounded-xl p-3 flex flex-col justify-between shadow-[0_0_20px_rgba(245,158,11,0.3)] backdrop-blur-[1px]">
+                <div className="flex items-center justify-between font-mono text-[10px]">
+                  <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 font-bold border border-amber-500/40">
+                    Submerged Cropland Risk
+                  </span>
+                  <span className="text-amber-300 font-semibold">24,380 ha</span>
+                </div>
+                <div className="text-[10px] font-mono text-amber-200">
+                  Depth &gt; 1.4m • C-SAR Penetration
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              {/* Anomaly Box 1 */}
+              <div className="absolute top-[28%] left-[34%] w-[250px] h-[160px] border-2 border-teal-400 bg-teal-500/20 rounded-xl p-3 flex flex-col justify-between shadow-[0_0_20px_rgba(45,212,191,0.3)]">
+                <div className="flex items-center justify-between font-mono text-[10px]">
+                  <span className="px-1.5 py-0.5 rounded bg-teal-950 text-teal-300 font-bold border border-teal-500/40">
+                    Canopy Disturbance Corridor Alpha
+                  </span>
+                  <span className="text-teal-300 font-semibold">48.2 ha</span>
+                </div>
+                <div className="text-[10px] font-mono text-teal-200">
+                  Confidence: 98.6% • ConvNeXt-v2
+                </div>
+              </div>
+
+              {/* Anomaly Box 2 */}
+              <div className="absolute bottom-[22%] right-[28%] w-[220px] h-[130px] border-2 border-amber-400 bg-amber-500/20 rounded-xl p-3 flex flex-col justify-between shadow-[0_0_20px_rgba(251,191,36,0.3)]">
+                <div className="flex items-center justify-between font-mono text-[10px]">
+                  <span className="px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 font-bold border border-amber-500/40">
+                    Inundation Crest Zone
+                  </span>
+                  <span className="text-amber-300 font-semibold">112 ha</span>
+                </div>
+                <div className="text-[10px] font-mono text-amber-200">
+                  Depth &gt; 1.2m • Sentinel-1 SAR
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Layer 2: Before / Baseline Imagery (Clipped if in split mode) */}
         {viewMode !== 'overlay' && (
           <div
-            className="absolute inset-0 h-full overflow-hidden pointer-events-none"
+            className="absolute inset-0 h-full overflow-hidden pointer-events-none z-10"
             style={{
               width: viewMode === 'split' ? `${splitPos}%` : '50%'
             }}
           >
             <div
-              className="absolute inset-0 w-[2000px] h-[2000px]"
-              style={{ background: activeAOI.beforeVisual }}
+              className="absolute top-0 left-0 h-full"
+              style={{
+                width: canvasDimensions.width || '100%',
+                ...getCanvasBackgroundStyle(activeAOI.beforeVisual)
+              }}
             >
-              <div className="absolute inset-0 geo-grid-pattern opacity-30"></div>
+              <div className="absolute inset-0 geo-grid-pattern opacity-20"></div>
               {/* Natural terrain river vectors */}
-              <svg className="absolute inset-0 w-full h-full opacity-40 stroke-teal-300 fill-none" strokeWidth="2">
+              <svg className="absolute inset-0 w-full h-full opacity-30 stroke-teal-300 fill-none" strokeWidth="2">
                 <path d="M 0 300 Q 250 350 450 200 T 900 350 T 1400 250" />
                 <path d="M 100 0 Q 300 220 500 450 T 700 800" strokeWidth="1" strokeDasharray="4 4" />
               </svg>
