@@ -13,6 +13,38 @@ import {
 
 export const MOCK_AOI_PRESETS: AOIPreset[] = [
   {
+    id: 'godavari-flood',
+    name: 'Godavari River Basin Flood Corridor',
+    location: 'Andhra Pradesh / Telangana, India',
+    coordinates: [17.385, 81.785],
+    bounds: [[17.1, 81.4], [17.7, 82.1]],
+    areaKm2: 3420,
+    recommendedSensor: 'sentinel-2',
+    primaryMetric: 'Peak Flood Inundation',
+    metricValue: '71,105 ha (+23.4%)',
+    description: 'Biotemporal dual-pass change detection over the Godavari river basin comparing pre-monsoon baseline to peak flood crest. Verified with deterministic NDWI water physics.',
+    beforeLabel: 'T0 Pre-Flood Baseline (t0_preFlood.tiff)',
+    afterLabel: 'T1 Post-Flood Inundation (t1_postFlood.tiff)',
+    beforeVisual: '/api/inputs/uploads/t0_preFlood_preview.png',
+    afterVisual: '/api/inputs/uploads/t1_postFlood_preview.png'
+  },
+  {
+    id: 'sentinel1-godavari-sar',
+    name: 'Godavari C-Band SAR Penetration',
+    location: 'Godavari Delta, India',
+    coordinates: [17.012, 81.821],
+    bounds: [[16.8, 81.5], [17.3, 82.1]],
+    areaKm2: 2450,
+    recommendedSensor: 'sentinel-1',
+    primaryMetric: 'SAR Specular Attenuation',
+    metricValue: 'VV/VH Ratio: -18.4 dB',
+    description: 'Dual-polarization Sentinel-1 C-SAR radar backscatter (sentinel1_godavari_sar.tif) penetrating heavy monsoonal cloud layers for cloud-free water mapping.',
+    beforeLabel: 'Optical Baseline (S2 Optical)',
+    afterLabel: 'C-Band SAR Radar Detection (S1 SAR)',
+    beforeVisual: '/api/inputs/samples/sentinel2_godavari_pre_preview.png',
+    afterVisual: '/api/inputs/samples/sentinel1_godavari_sar_preview.png'
+  },
+  {
     id: 'amazon-rondonia',
     name: 'Amazon Rainforest (Rondônia Track)',
     location: 'Rondônia, Brazil',
@@ -297,12 +329,12 @@ export interface AnalysisScenario {
   images: Array<{
     id: string;
     name: string;
-    format: 'GeoTIFF' | 'TIFF' | 'PNG' | 'JPEG';
+    format: 'GeoTIFF' | 'TIFF';
     dimensions: string;
     modality: 'Optical BOA' | 'SAR VV/VH' | 'Panchromatic' | 'SWIR / NBR';
     acquisitionDate: string;
     sizeMb: number;
-    validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Valid Benchmark Raster' | 'Error';
+    validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Error';
     previewVisual: string;
   }>;
   result: {
@@ -333,85 +365,6 @@ export interface AnalysisScenario {
 }
 
 export const MOCK_SCENARIOS: AnalysisScenario[] = [
-  {
-    id: 'sc-urban-expansion',
-    title: 'Bi-Temporal Urban Expansion Analysis',
-    category: 'Change-based VQA',
-    mode: 'bi-temporal',
-    taskType: 'change-vqa',
-    defaultQuery: 'Has the built-up area increased?',
-    images: [
-      {
-        id: 'img-urban-2022',
-        name: 'Sentinel2_Bengaluru_T0_2022.tif',
-        format: 'GeoTIFF',
-        dimensions: '2048 × 2048 px',
-        modality: 'Optical BOA',
-        acquisitionDate: 'June 14, 2022',
-        sizeMb: 18.4,
-        validationStatus: 'Valid GeoTIFF',
-        previewVisual: 'linear-gradient(135deg, #1e293b 0%, #334155 45%, #475569 100%)'
-      },
-      {
-        id: 'img-urban-2025',
-        name: 'Sentinel2_Bengaluru_T1_2025.tif',
-        format: 'GeoTIFF',
-        dimensions: '2048 × 2048 px',
-        modality: 'Optical BOA',
-        acquisitionDate: 'August 28, 2025',
-        sizeMb: 19.1,
-        validationStatus: 'Valid GeoTIFF',
-        previewVisual: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #b45309 100%)'
-      }
-    ],
-    result: {
-      answer: 'Yes, the built-up area increased significantly in the selected northwest peri-urban corridor between June 2022 and August 2025. Total impervious surface expanded by +28.4% (+412.5 hectares), replacing previously fallow agricultural land and scrub vegetation. 14 major logistics and high-density residential structures were newly detected.',
-      confidence: 91,
-      confidenceLevel: 'High',
-      selectedTask: 'Change-based VQA',
-      modelsUsed: ['Bi-Temporal Siamese Change Detection Model', 'Remote-Sensing Vision-Language Model (RS-VLM)'],
-      executionSummary: {
-        task: 'Change-based VQA',
-        inputSummary: '2 Bi-temporal Sentinel-2 L2A BOA Orthorectified Scenes (2022 vs 2025)',
-        selectedTools: ['Change Detection Model', 'Remote-Sensing VQA Model'],
-        pipeline: [
-          'Validation & Radiometric Co-Registration',
-          'Bi-Temporal Deep Siamese Difference Extraction',
-          'Spatial Change Map Interpretation',
-          'Evidence-Grounded Natural Language Answer Generation'
-        ],
-        latencyMs: 24.6,
-        status: 'Completed',
-        details: 'Radiometric calibration confirmed RMSE < 0.18 pixels. Difference threshold established at Otsu optimum + 0.15.'
-      },
-      evidence: {
-        type: 'change-vqa',
-        imageA: {
-          visual: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)',
-          label: 'Baseline Image (June 2022)',
-          date: '2022-06-14',
-          bounds: '12.97°N, 77.59°E [EPSG:32643]'
-        },
-        imageB: {
-          visual: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0369a1 100%)',
-          label: 'Post-Period Image (August 2025)',
-          date: '2025-08-28',
-          bounds: '12.97°N, 77.59°E [EPSG:32643]'
-        },
-        changeMap: {
-          visual: 'linear-gradient(135deg, #0f172a 0%, #b45309 40%, #dc2626 70%, #ef4444 100%)',
-          label: 'AI Difference Heatmap (Built-up Gain Highlighted in Amber/Red)',
-          legend: 'Red: High-Confidence Built-up Gain (+28.4%) | Green: Unchanged Vegetated Area | Black: No Significant Drift'
-        },
-        stats: [
-          { label: 'Built-up Area Growth', value: '+412.5 ha', delta: '+28.4%' },
-          { label: 'Converted Farmland', value: '348.0 ha', delta: '-19.2%' },
-          { label: 'Classification Confidence', value: '91.2%', delta: 'High Precision' },
-          { label: 'Co-Registration RMSE', value: '0.14 px', delta: 'Sub-Pixel Accurate' }
-        ]
-      }
-    }
-  },
   {
     id: 'sc-visual-grounding',
     title: 'Visual Grounding & Water Body Localization',
@@ -469,6 +422,85 @@ export const MOCK_SCENARIOS: AnalysisScenario[] = [
           { label: 'Mean NDWI Index', value: '+0.68', delta: 'Clear Water' },
           { label: 'Perimeter Length', value: '184.2 km', delta: 'Digitized' },
           { label: 'Grounding IoU', value: '94.8%', delta: 'High Overlap' }
+        ]
+      }
+    }
+  },
+  {
+    id: 'sc-urban-expansion',
+    title: 'Urban Expansion Change Analysis',
+    category: 'Change-based VQA',
+    mode: 'bi-temporal',
+    taskType: 'change-vqa',
+    defaultQuery: 'Has the built-up area increased?',
+    images: [
+      {
+        id: 'img-urban-2022',
+        name: 'Sentinel2_Bengaluru_T0_2022.tif',
+        format: 'GeoTIFF',
+        dimensions: '2048 × 2048 px',
+        modality: 'Optical BOA',
+        acquisitionDate: 'June 14, 2022',
+        sizeMb: 18.4,
+        validationStatus: 'Valid GeoTIFF',
+        previewVisual: 'linear-gradient(135deg, #1e293b 0%, #334155 45%, #475569 100%)'
+      },
+      {
+        id: 'img-urban-2025',
+        name: 'Sentinel2_Bengaluru_T1_2025.tif',
+        format: 'GeoTIFF',
+        dimensions: '2048 × 2048 px',
+        modality: 'Optical BOA',
+        acquisitionDate: 'August 28, 2025',
+        sizeMb: 19.1,
+        validationStatus: 'Valid GeoTIFF',
+        previewVisual: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #b45309 100%)'
+      }
+    ],
+    result: {
+      answer: 'Yes, the built-up area increased significantly in the selected northwest peri-urban corridor between June 2022 and August 2025. Total impervious surface expanded by +28.4% (+412.5 hectares), replacing previously fallow agricultural land and scrub vegetation. 14 major logistics and high-density residential structures were newly detected.',
+      confidence: 91,
+      confidenceLevel: 'High',
+      selectedTask: 'Change-based VQA',
+      modelsUsed: ['Siamese Change Detection Model', 'Remote-Sensing Vision-Language Model (RS-VLM)'],
+      executionSummary: {
+        task: 'Change-based VQA',
+        inputSummary: '2 Dual Sentinel-2 L2A BOA Orthorectified Scenes (2022 vs 2025)',
+        selectedTools: ['Change Detection Model', 'Remote-Sensing VQA Model'],
+        pipeline: [
+          'Validation & Radiometric Co-Registration',
+          'Deep Siamese Difference Extraction',
+          'Spatial Change Map Interpretation',
+          'Evidence-Grounded Natural Language Answer Generation'
+        ],
+        latencyMs: 24.6,
+        status: 'Completed',
+        details: 'Radiometric calibration confirmed RMSE < 0.18 pixels. Difference threshold established at Otsu optimum + 0.15.'
+      },
+      evidence: {
+        type: 'change-vqa',
+        imageA: {
+          visual: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)',
+          label: 'Baseline Image (June 2022)',
+          date: '2022-06-14',
+          bounds: '12.97°N, 77.59°E [EPSG:32643]'
+        },
+        imageB: {
+          visual: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0369a1 100%)',
+          label: 'Post-Period Image (August 2025)',
+          date: '2025-08-28',
+          bounds: '12.97°N, 77.59°E [EPSG:32643]'
+        },
+        changeMap: {
+          visual: 'linear-gradient(135deg, #0f172a 0%, #b45309 40%, #dc2626 70%, #ef4444 100%)',
+          label: 'AI Difference Heatmap (Built-up Gain Highlighted in Amber/Red)',
+          legend: 'Red: High-Confidence Built-up Gain (+28.4%) | Green: Unchanged Vegetated Area | Black: No Significant Drift'
+        },
+        stats: [
+          { label: 'Built-up Area Growth', value: '+412.5 ha', delta: '+28.4%' },
+          { label: 'Converted Farmland', value: '348.0 ha', delta: '-19.2%' },
+          { label: 'Classification Confidence', value: '91.2%', delta: 'High Precision' },
+          { label: 'Co-Registration RMSE', value: '0.14 px', delta: 'Sub-Pixel Accurate' }
         ]
       }
     }
@@ -854,7 +886,7 @@ export const MOCK_ERROR_SCENARIOS: ErrorScenario[] = [
     type: 'invalid-file',
     errorMessage: 'Corrupted File Header or Non-Raster Input',
     diagnosticDetail: 'The uploaded file does not contain valid raster magic bytes (TIFF header 0x49492A00 or 0x4D4D002A expected). File could be corrupted during transfer or is an unsupported vector container.',
-    suggestedFix: 'Verify the file integrity on your local machine. Ensure you are uploading a valid GeoTIFF, TIFF, or standard PNG/JPEG benchmark file.',
+    suggestedFix: 'Verify the file integrity on your local machine. Ensure you are uploading a valid GeoTIFF or CEOS SAR TIFF file.',
     remediationAction: 'Re-upload Valid GeoTIFF'
   },
   {

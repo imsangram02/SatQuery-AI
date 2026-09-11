@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   ZoomIn, 
   ZoomOut, 
@@ -21,9 +21,37 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
   const [viewMode, setViewMode] = useState<'split' | 'side-by-side' | 'mask-overlay'>('split');
   const [maskVisible, setMaskVisible] = useState(true);
   const [maskOpacity, setMaskOpacity] = useState(80);
+  const [containerWidth, setContainerWidth] = useState<number>(800);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth);
+      }
+    };
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
   const evidence = result.evidence;
+
+  const getVisualBackground = (visual?: string, fallback: string = 'linear-gradient(135deg, #0f172a, #1e293b)') => {
+    if (!visual) return fallback;
+    if (visual.startsWith('http') || visual.startsWith('/') || visual.startsWith('data:')) {
+      return `url("${visual}") center/cover no-repeat`;
+    }
+    return visual;
+  };
+
+  const getFullArtifactUrl = (url?: string) => {
+    if (!url) return '#';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return url.startsWith('/') ? url : `/${url}`;
+  };
+
 
   const handlePointerDown = (e: React.PointerEvent) => {
     setIsDragging(true);
@@ -166,7 +194,7 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
               style={{
                 transform: `scale(${zoom})`,
                 transformOrigin: 'center center',
-                background: evidence.changeMap?.visual || evidence.fusedResult?.visual || evidence.imageB?.visual || evidence.imageA?.visual || 'linear-gradient(135deg, #0f172a, #1e293b)'
+                background: getVisualBackground(evidence.changeMap?.visual || evidence.fusedResult?.visual || evidence.imageB?.visual || evidence.imageA?.visual)
               }}
             >
               <div className="absolute inset-0 geo-grid-pattern opacity-40" />
@@ -178,19 +206,23 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
                     <div
                       key={bb.id}
                       style={{
+                        position: 'absolute',
                         left: `${bb.x}%`,
                         top: `${bb.y}%`,
                         width: `${bb.width}%`,
                         height: `${bb.height}%`,
-                        borderColor: bb.color
+                        borderColor: bb.color,
+                        borderWidth: '2px',
+                        borderStyle: 'solid',
+                        backgroundColor: `${bb.color}22`
                       }}
-                      className="absolute border-2 border-dashed rounded-xl bg-cyan-400/10 p-2 flex flex-col justify-between"
+                      className="rounded-lg transition-all pointer-events-auto group/box"
                     >
-                      <span className="px-2 py-0.5 rounded bg-slate-950/80 text-[10px] font-mono font-bold text-white self-start">
-                        {bb.label}
-                      </span>
-                      <span className="px-1.5 py-0.2 rounded bg-slate-950/80 text-[9px] font-mono text-cyan-300 self-end">
-                        Conf: {Math.round(bb.confidence * 100)}%
+                      <span
+                        style={{ backgroundColor: bb.color }}
+                        className="absolute -top-6 left-0 px-2 py-0.5 rounded text-[10px] font-bold text-slate-950 font-mono shadow-md"
+                      >
+                        {bb.label} ({bb.confidence}%)
                       </span>
                     </div>
                   ))}
@@ -215,9 +247,10 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
               }}
             >
               <div
-                className="absolute inset-0 w-[1200px] h-full"
+                className="absolute inset-0 h-full"
                 style={{
-                  background: evidence.imageA?.visual || 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)'
+                  width: `${containerWidth}px`,
+                  background: getVisualBackground(evidence.imageA?.visual, 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%)')
                 }}
               >
                 <div className="absolute inset-0 geo-grid-pattern opacity-30" />
@@ -256,7 +289,7 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
             {/* Left Image */}
             <div
               className="h-full rounded-xl relative overflow-hidden border border-slate-700 flex flex-col justify-between p-4"
-              style={{ background: evidence.imageA?.visual || 'linear-gradient(135deg, #1e293b, #334155)' }}
+              style={{ background: getVisualBackground(evidence.imageA?.visual, 'linear-gradient(135deg, #1e293b, #334155)') }}
             >
               <div className="absolute inset-0 geo-grid-pattern opacity-30 pointer-events-none" />
               <span className="relative z-10 px-2.5 py-1 rounded bg-slate-950/80 text-xs font-mono text-slate-300 self-start">
@@ -270,7 +303,7 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
             {/* Right Image */}
             <div
               className="h-full rounded-xl relative overflow-hidden border-2 border-cyan-400/50 flex flex-col justify-between p-4"
-              style={{ background: evidence.changeMap?.visual || evidence.fusedResult?.visual || evidence.imageB?.visual || 'linear-gradient(135deg, #0f172a, #0369a1)' }}
+              style={{ background: getVisualBackground(evidence.changeMap?.visual || evidence.fusedResult?.visual || evidence.imageB?.visual, 'linear-gradient(135deg, #0f172a, #0369a1)') }}
             >
               <div className="absolute inset-0 geo-grid-pattern opacity-30 pointer-events-none" />
               <span className="relative z-10 px-2.5 py-1 rounded bg-cyan-950/90 border border-cyan-400/40 text-xs font-mono text-cyan-200 font-bold self-start">
@@ -287,7 +320,7 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
         {viewMode === 'mask-overlay' && (
           <div
             className="relative h-[420px] sm:h-[480px] w-full overflow-hidden p-6 flex flex-col justify-between"
-            style={{ background: evidence.imageA?.visual || 'linear-gradient(135deg, #1e293b, #334155)' }}
+            style={{ background: getVisualBackground(evidence.imageA?.visual, 'linear-gradient(135deg, #1e293b, #334155)') }}
           >
             <div className="absolute inset-0 geo-grid-pattern opacity-30 pointer-events-none" />
 
@@ -296,7 +329,7 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
               <div
                 className="absolute inset-0 pointer-events-none transition-opacity duration-200"
                 style={{
-                  background: evidence.changeMap?.visual || evidence.fusedResult?.visual || 'linear-gradient(135deg, rgba(6,182,212,0.3), rgba(245,158,11,0.3))',
+                  background: getVisualBackground(evidence.changeMap?.visual || evidence.fusedResult?.visual, 'linear-gradient(135deg, rgba(6,182,212,0.3), rgba(245,158,11,0.3))'),
                   opacity: maskOpacity / 100
                 }}
               />
@@ -349,6 +382,69 @@ export const EvidenceViewer: React.FC<EvidenceViewerProps> = ({ result }) => {
           ))}
         </div>
       )}
+
+      {/* Generated Prediction Artifacts & Deliverables */}
+      {(result.urls || result.artifacts) && (
+        <div className="p-4 rounded-xl bg-slate-900/90 border border-cyan-500/30 text-xs font-mono space-y-2 shadow-lg">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-cyan-400">📁 GENERATED PREDICTION ARTIFACTS:</span>
+            <span className="text-[10px] text-slate-400">Stored in data/outputs/</span>
+          </div>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {result.urls?.overlay_url && (
+              <a
+                href={getFullArtifactUrl(result.urls.overlay_url)}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 rounded-lg bg-cyan-950 border border-cyan-500/50 text-cyan-300 hover:bg-cyan-900 transition-colors flex items-center gap-1.5"
+              >
+                <span>🖼️</span> <span>Visual Overlay</span>
+              </a>
+            )}
+            {result.urls?.heatmap_url && (
+              <a
+                href={getFullArtifactUrl(result.urls.heatmap_url)}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 rounded-lg bg-purple-950 border border-purple-500/50 text-purple-300 hover:bg-purple-900 transition-colors flex items-center gap-1.5"
+              >
+                <span>🔥</span> <span>Confidence Heatmap</span>
+              </a>
+            )}
+            {result.urls?.mask_url && (
+              <a
+                href={getFullArtifactUrl(result.urls.mask_url)}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 rounded-lg bg-blue-950 border border-blue-500/50 text-blue-300 hover:bg-blue-900 transition-colors flex items-center gap-1.5"
+              >
+                <span>⬛</span> <span>Binary Mask</span>
+              </a>
+            )}
+            {result.urls?.report_markdown_url && (
+              <a
+                href={getFullArtifactUrl(result.urls.report_markdown_url)}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 rounded-lg bg-emerald-950 border border-emerald-500/50 text-emerald-300 hover:bg-emerald-900 transition-colors flex items-center gap-1.5"
+              >
+                <span>📄</span> <span>Inspection Report (.md)</span>
+              </a>
+            )}
+            {result.urls?.geojson_url && (
+              <a
+                href={getFullArtifactUrl(result.urls.geojson_url)}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 rounded-lg bg-amber-950 border border-amber-500/50 text-amber-300 hover:bg-amber-900 transition-colors flex items-center gap-1.5"
+              >
+                <span>🗺️</span> <span>RFC 7946 GeoJSON</span>
+              </a>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+
   );
 };

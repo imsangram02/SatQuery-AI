@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { 
   UploadCloud, 
   FileCheck2, 
@@ -9,32 +9,45 @@ import {
   Calendar, 
   Maximize2, 
   Trash2, 
-  Sparkles,
   Info,
-  AlertCircle
+  AlertCircle,
+  Database,
+  Plus
 } from 'lucide-react';
 import { ImageAnalysisMode, UploadedImageMeta } from '../../types';
-import { AnalysisScenario, MOCK_SCENARIOS } from '../../data/mockData';
+import { SatQueryApiService } from '../../services/apiService';
 
 interface ImageUploaderProps {
   mode: ImageAnalysisMode;
-  onChangeMode: (mode: ImageAnalysisMode) => void;
   images: UploadedImageMeta[];
   onAddImage: (img: UploadedImageMeta) => void;
   onRemoveImage: (id: string) => void;
-  onSelectScenario: (scenario: AnalysisScenario) => void;
+  onUpdateImage?: (id: string, updates: Partial<UploadedImageMeta>) => void;
 }
 
 export const ImageUploader: React.FC<ImageUploaderProps> = ({
   mode,
-  onChangeMode,
   images,
   onAddImage,
   onRemoveImage,
-  onSelectScenario
+  onUpdateImage
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [availableSamples, setAvailableSamples] = useState<any[]>([]);
+  const [showSamplePicker, setShowSamplePicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    SatQueryApiService.getSamples().then(samples => {
+      if (mounted && samples && samples.length > 0) {
+        setAvailableSamples(samples);
+      }
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -60,105 +73,135 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
   };
 
-  const processFiles = (fileList: FileList) => {
+  const processFiles = async (fileList: FileList) => {
+    setErrorMessage(null);
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
       const isTiff = file.name.toLowerCase().endsWith('.tif') || file.name.toLowerCase().endsWith('.tiff');
       const isPng = file.name.toLowerCase().endsWith('.png');
       const isJpeg = file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg');
 
-      const format = isTiff ? 'GeoTIFF' : isPng ? 'PNG' : 'JPEG';
+      if (!isTiff && !isPng && !isJpeg) {
+        setErrorMessage(`"${file.name}" is not supported. Please upload GeoTIFF (.tif, .tiff) or benchmark imagery (.png, .jpg).`);
+        continue;
+      }
+
       const isSar = file.name.toLowerCase().includes('sar') || file.name.toLowerCase().includes('s1');
+
+      let previewUrl: string | undefined = undefined;
+      if (isPng || isJpeg) {
+        try {
+          previewUrl = URL.createObjectURL(file);
+        } catch {
+          // ignore
+        }
+      }
+
+      const formatLabel: 'GeoTIFF' | 'TIFF' | 'PNG' | 'JPEG' = isTiff ? 'GeoTIFF' : isPng ? 'PNG' : 'JPEG';
 
       const newImage: UploadedImageMeta = {
         id: `custom-img-${Date.now()}-${i}`,
         name: file.name,
-        format,
+        format: formatLabel,
         dimensions: '2048 × 2048 px',
         modality: isSar ? 'SAR VV/VH' : 'Optical BOA',
         acquisitionDate: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
         sizeMb: Number((file.size / (1024 * 1024)).toFixed(1)) || 16.4,
-        validationStatus: isTiff ? 'Valid GeoTIFF' : 'Valid Benchmark Raster',
+        validationStatus: isSar ? 'Valid SAR C-Band' : isTiff ? 'Valid GeoTIFF' : 'Valid Benchmark Image',
         previewVisual: isSar
           ? 'linear-gradient(135deg, #020617 0%, #0f172a 40%, #1e293b 100%)'
-          : 'linear-gradient(135deg, #134e4a 0%, #065f46 45%, #0284c7 100%)'
+          : 'linear-gradient(135deg, #134e4a 0%, #065f46 45%, #0284c7 100%)',
+        previewUrl,
+        fileObject: file
       };
+
+      // Upload to server in background to register and create preview
+      setIsUploading(true);
+      SatQueryApiService.uploadFile(file).then(res => {
+        if (res) {
+          newImage.serverPath = res.filename;
+          if (res.preview_url) {
+            newImage.previewUrl = res.preview_url;
+            newImage.previewVisual = `url("${res.preview_url}") center/cover no-repeat`;
+          }
+          if (onUpdateImage) {
+            onUpdateImage(newImage.id, {
+              serverPath: res.filename,
+              previewUrl: res.preview_url || undefined,
+              previewVisual: res.preview_url ? `url("${res.preview_url}") center/cover no-repeat` : newImage.previewVisual
+            });
+          }
+        }
+        setIsUploading(false);
+      }).catch(() => setIsUploading(false));
 
       onAddImage(newImage);
     }
   };
 
+  const handleStageSample = (sample: any) => {
+    const isSar = (sample.name || '').toLowerCase().includes('sar') || 
+                  (sample.name || '').toLowerCase().includes('s1') || 
+                  (sample.modality || '').toLowerCase().includes('sar');
+    const isTiff = (sample.name || '').toLowerCase().endsWith('.tif') || (sample.name || '').toLowerCase().endsWith('.tiff');
+
+    const stagedImg: UploadedImageMeta = {
+      id: `srv-${Date.now()}-${sample.id}`,
+      name: sample.name,
+      format: isTiff ? 'GeoTIFF' : 'PNG',
+      dimensions: '512 × 512 px',
+      modality: isSar ? 'SAR VV/VH' : 'Optical BOA',
+      acquisitionDate: 'Calibrated Scene',
+      sizeMb: Number((sample.size_bytes / (1024 * 1024)).toFixed(1)) || 1.2,
+      validationStatus: isSar ? 'Valid SAR C-Band' : 'Valid GeoTIFF',
+      previewVisual: isSar
+        ? 'linear-gradient(135deg, #020617 0%, #0f172a 40%, #1e293b 100%)'
+        : 'linear-gradient(135deg, #134e4a 0%, #065f46 45%, #0284c7 100%)',
+      previewUrl: sample.preview_url,
+      serverPath: sample.name || sample.path
+    };
+    onAddImage(stagedImg);
+  };
+
+
   return (
     <div className="space-y-6">
-      {/* 1-Click Benchmark Scenario Quick-Load Bar */}
-      <div className="p-4 rounded-2xl bg-slate-100/90 dark:bg-slate-900/90 border border-slate-200 dark:border-cyan-500/20 backdrop-blur-md">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-800 dark:text-slate-200">
-            <Sparkles className="w-4 h-4 text-cyan-500" />
-            <span>QUICK-LOAD BENCHMARK SCENARIOS (1-CLICK TEST)</span>
+      {/* Auto-Detected Analysis Mode Indicator */}
+      {/* <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 backdrop-blur-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wide">
+                Analysis Mode:
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30">
+                {mode === 'single'
+                  ? 'Single Image Mode (VQA / Grounding)'
+                  : mode === 'bi-temporal'
+                  ? 'Multi-Scene Change Detection'
+                  : 'Optical + SAR Cross-Modal Fusion'}
+              </span>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Auto-Detected
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+              {images.length === 0
+                ? 'System will automatically select neural specialist upon image staging.'
+                : images.length === 1
+                ? 'Single scene detected → Auto-routed to ConvNeXt-v2 Optical/SAR Specialist & Physics Sanity Engine'
+                : mode === 'optical-sar'
+                ? 'Optical + SAR radar pair detected → Auto-routed to 14-Channel ViT Cross-Modal Specialist'
+                : 'Multi-scene detected → Auto-routed to Change Detection Specialist'}
+            </p>
           </div>
-          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-            Click to auto-stage imagery, prompt & specialist pipeline
-          </span>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          {MOCK_SCENARIOS.map((scenario) => (
-            <button
-              key={scenario.id}
-              onClick={() => onSelectScenario(scenario)}
-              className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-cyan-500/10 dark:hover:bg-cyan-950/40 border border-slate-200 dark:border-slate-700 hover:border-cyan-400 text-xs font-mono text-slate-700 dark:text-slate-200 hover:text-cyan-600 dark:hover:text-cyan-300 font-semibold whitespace-nowrap transition-all duration-150 active:scale-95 shadow-xs"
-            >
-              {scenario.title.split(' Analysis')[0]}
-            </button>
-          ))}
+        <div className="text-[11px] font-mono text-slate-400 hidden sm:block shrink-0">
+          <span className="text-cyan-500 font-semibold">{images.length}</span> {images.length === 1 ? 'image staged' : 'images staged'}
         </div>
-      </div>
-
-      {/* Dynamic Mode Switcher (Section 17: UI adapts to uploaded images) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-        <div>
-          <span className="text-xs font-bold text-slate-900 dark:text-white block">
-            Analysis Modality Configuration
-          </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-            UI dynamically reconfigures image slots and pipeline based on selected mode
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-          <button
-            onClick={() => onChangeMode('single')}
-            className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${
-              mode === 'single'
-                ? 'bg-cyan-400 text-slate-950 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Single Image
-          </button>
-          <button
-            onClick={() => onChangeMode('bi-temporal')}
-            className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${
-              mode === 'bi-temporal'
-                ? 'bg-cyan-400 text-slate-950 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Bi-Temporal (T0 / T1)
-          </button>
-          <button
-            onClick={() => onChangeMode('optical-sar')}
-            className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${
-              mode === 'optical-sar'
-                ? 'bg-cyan-400 text-slate-950 shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            Optical + SAR
-          </button>
-        </div>
-      </div>
+      </div> */}
 
       {/* Large Drag-and-Drop Area (Section 16 of design.md) */}
       <div
@@ -191,28 +234,84 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               Drag & Drop Satellite Imagery Here
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Supports <strong className="text-cyan-600 dark:text-cyan-400">GeoTIFF (.tif, .tiff)</strong>, CEOS SAR C-Band radar, and PNG/JPEG benchmark datasets.
+              Supports <strong className="text-cyan-600 dark:text-cyan-400">GeoTIFF (.tif, .tiff)</strong> or click to browse.
             </p>
-          </div>
-
-          <div className="flex items-center justify-center gap-2 pt-1 text-[11px] font-mono text-slate-400">
-            <span>STAC API v1.0.0</span>
-            <span>•</span>
-            <span>Cloud-Optimized GeoTIFF (COG)</span>
-            <span>•</span>
-            <span>Auto CRS Parsing</span>
           </div>
         </div>
       </div>
+
+      {/* Quick Select from Server Imagery & Datasets */}
+      {/* {availableSamples.length > 0 && (
+        <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="w-3.5 h-3.5 text-cyan-500" />
+              <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200 uppercase">
+                Server Datasets & Rasters ({availableSamples.length} available)
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSamplePicker(!showSamplePicker)}
+              className="text-xs font-mono text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 font-semibold"
+            >
+              {showSamplePicker ? 'Hide Datasets ▲' : 'Browse & Stage Datasets ▼'}
+            </button>
+          </div>
+
+          {showSamplePicker && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pt-1 max-h-56 overflow-y-auto pr-1">
+              {availableSamples.map((sample) => (
+                <button
+                  key={sample.id}
+                  type="button"
+                  onClick={() => handleStageSample(sample)}
+                  className="p-2.5 rounded-lg bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/70 hover:border-cyan-400 hover:shadow-sm transition-all text-left flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-2.5 truncate">
+                    {sample.preview_url ? (
+                      <img
+                        src={sample.preview_url}
+                        alt={sample.label}
+                        className="w-8 h-8 rounded object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded bg-cyan-500/10 text-cyan-500 font-mono text-[9px] font-bold flex items-center justify-center shrink-0">
+                        SAT
+                      </div>
+                    )}
+                    <div className="truncate">
+                      <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                        {sample.label}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                        {sample.modality}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0">
+                    + Stage
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )} */}
+
+      {/* Format Error Alert */}
+      {errorMessage && (
+        <div className="flex items-center gap-2 p-3 text-xs font-mono text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 rounded-xl">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* Uploaded Images Staging Cards (Section 16: Filename, Format, Dimensions, Modality, Acquisition date, Validation status) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between text-xs font-mono">
           <span className="font-bold text-slate-700 dark:text-slate-300 uppercase">
             Staged Satellite Imagery ({images.length} {images.length === 1 ? 'image' : 'images'})
-          </span>
-          <span className="text-cyan-600 dark:text-cyan-400">
-            {mode === 'single' ? 'Single Image Mode' : mode === 'bi-temporal' ? 'Bi-Temporal Mode (T0 & T1)' : 'Optical + SAR Modality'}
           </span>
         </div>
 
@@ -231,7 +330,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
-                      Slot 0{index + 1}: {index === 0 && mode === 'bi-temporal' ? 'Baseline (T0)' : index === 1 && mode === 'bi-temporal' ? 'Comparison (T1)' : index === 0 && mode === 'optical-sar' ? 'Optical Modality' : index === 1 && mode === 'optical-sar' ? 'SAR Radar Modality' : 'Target Scene'}
+                      Slot 0{index + 1}: {index === 0 && mode === 'bi-temporal' ? 'Baseline Scene' : index === 1 && mode === 'bi-temporal' ? 'Comparison Scene' : index === 0 && mode === 'optical-sar' ? 'Optical Modality' : index === 1 && mode === 'optical-sar' ? 'SAR Radar Modality' : 'Target Scene'}
                     </span>
                     <span className="text-xs font-mono font-bold text-slate-500">{img.format}</span>
                   </div>

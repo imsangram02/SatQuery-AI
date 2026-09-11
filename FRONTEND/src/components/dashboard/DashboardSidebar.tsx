@@ -1,41 +1,62 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Satellite, 
   Compass, 
   History, 
   FileText, 
-  Cpu, 
   Settings, 
-  Layers, 
-  AlertTriangle, 
-  ArrowLeft, 
   Sun, 
   Moon, 
   Radio, 
   ChevronRight,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  LogOut,
+  Menu,
+  Cpu,
+  Bot,
+  Layers
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { DashboardView, UserProfile } from '../../types';
+import { ModernSatelliteAiLogo } from '../landing/LandingNavbar';
+import { SatQueryApiService, BackendHealth } from '../../services/apiService';
 
 interface DashboardSidebarProps {
   currentView: DashboardView;
   onSelectView: (view: DashboardView) => void;
-  onBackToLanding: () => void;
+  onBackToLanding?: () => void;
+  onCloseSidebar?: () => void;
   user: UserProfile | null;
   systemStatus?: string;
+  onSignOut?: () => void;
 }
 
 export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   currentView,
   onSelectView,
-  onBackToLanding,
+  onCloseSidebar,
   user,
-  systemStatus = 'AI System Ready'
+  systemStatus = 'AI System Ready',
+  onSignOut
 }) => {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
+  const [backendHealth, setBackendHealth] = useState<BackendHealth | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const pollHealth = async () => {
+      const health = await SatQueryApiService.checkHealth();
+      if (mounted) setBackendHealth(health);
+    };
+    pollHealth();
+    const interval = setInterval(pollHealth, 12000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const menuItems: Array<{
     id: DashboardView;
@@ -50,6 +71,23 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       badge: 'Core'
     },
     {
+      id: 'models',
+      label: 'Models & Tools',
+      icon: Cpu,
+      badge: '6 AI'
+    },
+    {
+      id: 'chat',
+      label: 'Orbit AI Copilot',
+      icon: Bot,
+      badge: 'Live'
+    },
+    {
+      id: 'workspace',
+      label: 'Geospatial Canvas',
+      icon: Layers
+    },
+    {
       id: 'history',
       label: 'Analysis History',
       icon: History
@@ -60,23 +98,6 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       icon: FileText
     },
     {
-      id: 'models',
-      label: 'Models & Tools',
-      icon: Cpu,
-      badge: '6 Models'
-    },
-    {
-      id: 'canvas',
-      label: '3-Pane Canvas',
-      icon: Layers,
-      badge: 'GIS'
-    },
-    {
-      id: 'errors',
-      label: 'Error Lab & Recovery',
-      icon: AlertTriangle
-    },
-    {
       id: 'settings',
       label: 'Settings',
       icon: Settings
@@ -84,7 +105,7 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   ];
 
   return (
-    <aside className="w-64 lg:w-72 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-cyan-500/20 flex flex-col justify-between h-screen sticky top-0 select-none z-30 transition-colors duration-200 flex-shrink-0">
+    <aside className="w-64 lg:w-72 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-cyan-500/20 flex flex-col justify-between h-[calc(100vh-53px)] sticky top-[53px] select-none z-30 transition-colors duration-200 flex-shrink-0 overflow-y-auto">
       {/* Top Section: Brand & Navigation */}
       <div>
         {/* Top Radiant Accent Strip */}
@@ -92,45 +113,34 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
 
         {/* Brand Header */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 via-teal-400 to-indigo-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/25 flex-shrink-0">
-              <Satellite className="w-5 h-5 text-slate-950 stroke-[2.2]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-base font-black tracking-tight text-slate-900 dark:text-white">
-                  SatQuery<span className="text-cyan-500 dark:text-cyan-400">AI</span>
-                </span>
-              </div>
-              <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 block leading-none mt-0.5">
-                Remote Sensing Assistant
-              </span>
-            </div>
+          <div className="flex items-center">
+            <ModernSatelliteAiLogo size="sm" showText={true} />
           </div>
 
-          {/* Theme Toggle Button */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
-            title={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
-          >
-            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
-          </button>
-        </div>
+          <div className="flex items-center gap-1">
+            {/* Theme Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
+              title={`Switch to ${isDark ? 'Light' : 'Dark'} Mode`}
+            >
+              {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+            </button>
 
-        {/* Return to Public Landing Page Link */}
-        <div className="px-3 pt-3 pb-1">
-          <button
-            onClick={onBackToLanding}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-300 hover:bg-slate-100 dark:hover:bg-slate-900/80 border border-dashed border-slate-200 dark:border-slate-800 transition-all active:scale-[0.98] group"
-          >
-            <div className="flex items-center gap-2">
-              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Landing Page</span>
-            </div>
-            <span className="text-[10px] font-mono text-slate-400 uppercase">Public</span>
-          </button>
+            {/* Menu Toggle Button */}
+            {onCloseSidebar && (
+              <button
+                type="button"
+                onClick={onCloseSidebar}
+                className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:text-cyan-500 dark:hover:text-cyan-400 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
+                title="Close Sidebar Menu"
+                aria-label="Close Sidebar"
+              >
+                <Menu className="w-4 h-4" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Sidebar Nav Items (Section 13-14 of design.md) */}
@@ -185,9 +195,17 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         {user && (
           <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold text-xs flex items-center justify-center border border-cyan-500/30 flex-shrink-0">
-                {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-              </div>
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name}
+                  className="w-7 h-7 rounded-lg object-cover border border-cyan-500/30 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 font-bold text-xs flex items-center justify-center border border-cyan-500/30 flex-shrink-0">
+                  {user.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                </div>
+              )}
               <div className="min-w-0">
                 <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
                   {user.name}
@@ -197,21 +215,37 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 </div>
               </div>
             </div>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" title="Online" />
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" title="Online" />
+              {onSignOut && (
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="p-1 text-slate-400 hover:text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
+                  title="Sign Out / Switch Account"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Section 14 Bottom Requirement: ● AI System Ready */}
+        {/* Section 14 Bottom Requirement: ● AI System Ready / Core Engine */}
         <div className="px-3 py-2 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-between text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-300">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            <span>{systemStatus}</span>
+            <span>
+              {backendHealth
+                ? `SatQuery Core: ${backendHealth.device.toUpperCase()}`
+                : systemStatus}
+            </span>
           </div>
-          <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-200">
-            Online
+          <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-800 dark:text-emerald-200">
+            {backendHealth ? 'Connected' : 'Ready'}
           </span>
         </div>
       </div>

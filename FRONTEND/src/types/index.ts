@@ -1,6 +1,6 @@
 export type Theme = 'dark' | 'light';
 
-export type Screen = 'landing' | 'showcase' | 'dashboard' | 'workspace' | 'settings' | 'chat' | 'auth';
+export type Screen = 'landing' | 'showcase' | 'dashboard' | 'workspace' | 'settings' | 'chat' | 'auth' | 'login' | 'signup' | 'forgot-password';
 
 export type SensorType = 
   | 'sentinel-2' 
@@ -114,6 +114,7 @@ export interface UserProfile {
   stacTier: string;
   quotaUsedGb: number;
   quotaMaxGb: number;
+  avatarUrl?: string;
 }
 
 export interface ModelConfidenceSettings {
@@ -131,12 +132,12 @@ export interface ModelConfidenceSettings {
 
 export type DashboardView = 
   | 'new-analysis' 
+  | 'models'
+  | 'chat'
+  | 'workspace'
   | 'history' 
   | 'reports' 
-  | 'models' 
-  | 'settings' 
-  | 'canvas' 
-  | 'errors';
+  | 'settings';
 
 export type AnalysisTaskType = 
   | 'vqa' 
@@ -159,10 +160,13 @@ export interface UploadedImageMeta {
   modality: 'Optical BOA' | 'SAR VV/VH' | 'Panchromatic' | 'SWIR / NBR';
   acquisitionDate: string;
   sizeMb: number;
-  validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Valid Benchmark Raster' | 'Error';
+  validationStatus: 'Valid GeoTIFF' | 'Valid SAR C-Band' | 'Valid Benchmark Image' | 'Error';
   previewVisual?: string;
   previewUrl?: string;
+  fileObject?: File;
+  serverPath?: string;
 }
+
 
 export interface AgentProcessStep {
   id: string;
@@ -209,7 +213,10 @@ export interface AnalysisResultData {
     }>;
     stats?: Array<{ label: string; value: string; delta?: string }>;
   };
+  artifacts?: Record<string, string>;
+  urls?: Record<string, string>;
 }
+
 
 export interface ModelToolCardInfo {
   id: string;

@@ -8,7 +8,6 @@ import {
   Cpu, 
   ArrowRight, 
   Check, 
-  Sparkles,
   Layers,
   Eye
 } from 'lucide-react';
@@ -120,22 +119,21 @@ export const CoreFeaturesSection: React.FC<CoreFeaturesSectionProps> = ({ onLaun
   ];
 
   return (
-    <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-b border-slate-200/80 dark:border-slate-800/80">
+    <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-b border-slate-200 dark:border-[#263B5C]">
       {/* Section Header */}
       <div className="text-center max-w-3xl mx-auto mb-16 space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-mono text-xs font-semibold uppercase tracking-wider">
-          <Sparkles className="w-3.5 h-3.5 text-cyan-500" />
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 text-blue-600 dark:text-[#5B8CFF] border border-blue-500/25 font-mono text-xs font-semibold uppercase tracking-wider">
           Multimodal Remote-Sensing Capabilities
         </div>
-        <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+        <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-[#F5F7FF] tracking-tight">
           One Interface. Multiple Remote-Sensing Capabilities.
         </h2>
-        <p className="text-slate-600 dark:text-slate-300 text-sm sm:text-base leading-relaxed">
+        <p className="text-slate-600 dark:text-[#A8B6CF] text-sm sm:text-base leading-relaxed">
           From single-image question answering and referential visual grounding to multi-temporal change detection and cross-modal optical+SAR radar fusion.
         </p>
       </div>
 
-      {/* 6 Feature Cards Grid (Section 4 of design.md) */}
+      {/* 6 Feature Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {features.map((feature, idx) => {
           const Icon = feature.icon;
@@ -146,8 +144,8 @@ export const CoreFeaturesSection: React.FC<CoreFeaturesSectionProps> = ({ onLaun
               key={feature.id}
               className={`p-6 rounded-2xl transition-all duration-300 flex flex-col justify-between group ${
                 isAgentic
-                  ? 'bg-gradient-to-b from-cyan-500/10 via-teal-500/5 to-transparent dark:from-cyan-950/40 dark:via-slate-900 dark:to-slate-950 border-2 border-cyan-400/50 shadow-lg shadow-cyan-500/10 hover:shadow-cyan-500/20'
-                  : 'bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800/90 hover:border-cyan-500/40 hover:shadow-lg dark:hover:shadow-cyan-500/5'
+                  ? 'bg-gradient-to-b from-blue-50/90 to-indigo-50/80 dark:from-[#101F38] dark:to-[#152A48] border-2 border-blue-500/40 dark:border-[#5B8CFF]/50 shadow-xl shadow-blue-500/10 dark:shadow-[#5B8CFF]/15 hover:shadow-2xl hover:-translate-y-1'
+                  : 'bg-white dark:bg-[#101F38] hover:bg-slate-50 dark:hover:bg-[#152A48] border border-slate-200 dark:border-[#263B5C] hover:border-blue-400 dark:hover:border-[#5B8CFF]/40 shadow-sm hover:shadow-xl hover:-translate-y-1'
               }`}
             >
               <div className="space-y-4">
@@ -155,15 +153,15 @@ export const CoreFeaturesSection: React.FC<CoreFeaturesSectionProps> = ({ onLaun
                 <div className="flex items-center justify-between">
                   <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 ${
                     isAgentic
-                      ? 'bg-cyan-400 text-slate-950 shadow-md shadow-cyan-400/30'
-                      : 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20'
+                      ? 'bg-gradient-to-br from-[#5B8CFF] to-[#7C6CFF] text-white shadow-md shadow-[#5B8CFF]/20'
+                      : 'bg-blue-500/10 dark:bg-[#5B8CFF]/15 text-blue-600 dark:text-[#5B8CFF] border border-blue-500/20 dark:border-[#5B8CFF]/25'
                   }`}>
                     <Icon className="w-5 h-5 stroke-[2.2]" />
                   </div>
                   <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
                     isAgentic
-                      ? 'bg-cyan-400 text-slate-950'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                      ? 'bg-blue-600 dark:bg-[#5B8CFF] text-white'
+                      : 'bg-slate-100 dark:bg-[#0B1930] text-slate-700 dark:text-[#A8B6CF] border border-slate-200 dark:border-[#263B5C]'
                   }`}>
                     {feature.badge}
                   </span>
@@ -171,36 +169,36 @@ export const CoreFeaturesSection: React.FC<CoreFeaturesSectionProps> = ({ onLaun
 
                 {/* Title & Description */}
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-[#F5F7FF] tracking-tight">
                     {feature.title}
                   </h3>
-                  <p className="text-xs text-cyan-600 dark:text-cyan-400 font-mono mt-0.5">
+                  <p className="text-xs text-cyan-700 dark:text-[#22D3EE] font-mono mt-0.5 font-semibold">
                     {feature.subtitle}
                   </p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mt-2.5">
+                  <p className="text-xs text-slate-600 dark:text-[#A8B6CF] leading-relaxed mt-2.5">
                     {feature.description}
                   </p>
                 </div>
 
                 {/* Example Query Pill */}
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-[11px] font-mono">
-                  <span className="text-slate-400 dark:text-slate-500 block text-[10px] uppercase font-bold">Sample Natural Query:</span>
-                  <span className="text-slate-800 dark:text-slate-200 font-semibold italic">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B1930] border border-slate-200 dark:border-[#263B5C] text-[11px] font-mono">
+                  <span className="text-slate-500 dark:text-[#A8B6CF] block text-[10px] uppercase font-bold">Sample Natural Query:</span>
+                  <span className="text-slate-900 dark:text-[#F5F7FF] font-semibold italic">
                     "{feature.exampleQuery}"
                   </span>
                 </div>
 
                 {/* Mini Visual Simulation */}
                 <div 
-                  className="h-20 rounded-xl relative overflow-hidden flex flex-col justify-end p-2 border border-slate-200/80 dark:border-slate-800"
+                  className="h-20 rounded-xl relative overflow-hidden flex flex-col justify-end p-2 border border-slate-200 dark:border-[#263B5C]"
                   style={{ background: feature.visualPreview.gradient }}
                 >
                   <div className="absolute inset-0 geo-grid-pattern opacity-30 pointer-events-none" />
                   <div className="relative z-10 flex items-center justify-between text-[10px] font-mono text-white">
-                    <span className="px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-xs font-semibold">
+                    <span className="px-1.5 py-0.5 rounded bg-slate-950/85 backdrop-blur-xs font-semibold">
                       {feature.visualPreview.tag}
                     </span>
-                    <span className="px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-xs text-cyan-300 font-bold">
+                    <span className="px-1.5 py-0.5 rounded bg-slate-950/85 backdrop-blur-xs text-[#22D3EE] font-bold">
                       {feature.visualPreview.stats}
                     </span>
                   </div>
@@ -208,12 +206,12 @@ export const CoreFeaturesSection: React.FC<CoreFeaturesSectionProps> = ({ onLaun
               </div>
 
               {/* Bottom Card Action */}
-              <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs font-mono">
-                <span className="text-slate-400 dark:text-slate-500 text-[11px]">Mode: {feature.mode}</span>
+              <div className="mt-5 pt-3 border-t border-slate-200 dark:border-[#263B5C] flex items-center justify-between text-xs font-mono">
+                <span className="text-slate-500 dark:text-[#A8B6CF] text-[11px]">Mode: {feature.mode}</span>
                 {onLaunchWithQuery && (
                   <button
                     onClick={() => onLaunchWithQuery(feature.exampleQuery, feature.mode)}
-                    className="flex items-center gap-1 font-bold text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 hover:underline active:scale-95 transition-transform"
+                    className="flex items-center gap-1 font-bold text-blue-600 dark:text-[#5B8CFF] hover:text-cyan-600 dark:hover:text-[#22D3EE] hover:underline active:scale-95 transition-transform"
                   >
                     <span>Test Query</span>
                     <ArrowRight className="w-3.5 h-3.5" />

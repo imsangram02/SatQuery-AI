@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   History, 
   Search, 
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { MOCK_SAVED_REPORTS } from '../../data/mockData';
 import { ReportItem } from '../../types';
+import { SatQueryApiService } from '../../services/apiService';
 
 interface AnalysisHistoryViewProps {
   onViewReport: (report: ReportItem) => void;
@@ -19,8 +20,36 @@ export const AnalysisHistoryView: React.FC<AnalysisHistoryViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'All' | 'Change' | 'Grounding' | 'VQA' | 'Optical+SAR'>('All');
+  const [serverReports, setServerReports] = useState<ReportItem[]>([]);
 
-  const filteredReports = MOCK_SAVED_REPORTS.filter(item => {
+  useEffect(() => {
+    let mounted = true;
+    SatQueryApiService.getReports().then(reps => {
+      if (mounted && reps && reps.length > 0) {
+        const mapped: ReportItem[] = reps.map(r => ({
+          id: r.id,
+          title: r.title,
+          query: r.query,
+          date: r.date,
+          task: r.task,
+          confidence: r.confidence,
+          answer: r.answer,
+          modelsUsed: r.modelsUsed,
+          executionTime: r.executionTime,
+          status: (r.status as any) || 'Generated',
+          inputSummary: r.inputSummary,
+          evidenceVisual: r.evidenceVisual,
+          tags: r.tags,
+        }));
+        setServerReports(mapped);
+      }
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const allItems = [...serverReports, ...MOCK_SAVED_REPORTS];
+
+  const filteredReports = allItems.filter(item => {
     const matchesSearch = item.query.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           item.task.toLowerCase().includes(searchTerm.toLowerCase());

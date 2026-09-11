@@ -1,0 +1,137 @@
+# ==============================================================================
+# SatQuery AI — Spectral Indices, Band Mappings & Physics Verification Config
+# ==============================================================================
+
+version: "1.0.0"
+description: "Deterministic physical formulas, band channel indices, and validation thresholds for Earth observation reasoning."
+
+# ------------------------------------------------------------------------------
+# Sensor Band Channel Registries (1-indexed for standard GeoTIFF band slicing)
+# ------------------------------------------------------------------------------
+sensors:
+  sentinel_2_l2a:
+    name: "Sentinel-2 MSI Level-2A"
+    constellation: "Copernicus"
+    radiometric_scale_factor: 10000.0  # DN / 10000 -> BOA Surface Reflectance [0, 1]
+    nodata_value: 0
+    bands:
+      B01: { channel: 1, name: "Coastal Aerosol", wavelength_nm: 443 }
+      B02: { channel: 2, name: "Blue", wavelength_nm: 490 }
+      B03: { channel: 3, name: "Green", wavelength_nm: 560 }
+      B04: { channel: 4, name: "Red", wavelength_nm: 665 }
+      B05: { channel: 5, name: "RedEdge-1", wavelength_nm: 705 }
+      B06: { channel: 6, name: "RedEdge-2", wavelength_nm: 740 }
+      B07: { channel: 7, name: "RedEdge-3", wavelength_nm: 783 }
+      B08: { channel: 8, name: "NIR-Broad", wavelength_nm: 842 }
+      B8A: { channel: 9, name: "NIR-Narrow", wavelength_nm: 865 }
+      B09: { channel: 10, name: "Water Vapour", wavelength_nm: 945 }
+      B11: { channel: 11, name: "SWIR-1", wavelength_nm: 1610 }
+      B12: { channel: 12, name: "SWIR-2", wavelength_nm: 2190 }
+
+  sentinel_1_grd:
+    name: "Sentinel-1 C-SAR GRD"
+    constellation: "Copernicus"
+    calibration: "sigma_nought_db"
+    epsilon: 1.0e-7
+    bands:
+      VV: { channel: 1, polarization: "vertical_vertical", description: "Co-polarized intensity/amplitude" }
+      VH: { channel: 2, polarization: "vertical_horizontal", description: "Cross-polarized intensity/amplitude" }
+
+  isro_eos04_sar:
+    name: "EOS-04 / RISAT-1A C-SAR"
+    constellation: "ISRO"
+    calibration: "sigma_nought_db"
+    epsilon: 1.0e-7
+    bands:
+      HH_or_VV: { channel: 1, polarization: "co_pol" }
+      HV_or_VH: { channel: 2, polarization: "cross_pol" }
+
+  isro_resourcesat_liss4:
+    name: "Resourcesat-2/2A LISS-IV"
+    constellation: "ISRO"
+    radiometric_scale_factor: 1023.0  # 10-bit raw quantization
+    nodata_value: 0
+    bands:
+      B2: { channel: 1, name: "Green", wavelength_um: 0.55 }
+      B3: { channel: 2, name: "Red", wavelength_um: 0.65 }
+      B4: { channel: 3, name: "NIR", wavelength_um: 0.81 }
+
+# ------------------------------------------------------------------------------
+# Optical Spectral Indices & Mathematical Formulations
+# ------------------------------------------------------------------------------
+indices:
+  ndvi:
+    name: "Normalized Difference Vegetation Index"
+    formula: "(NIR - Red) / (NIR + Red)"
+    valid_range: [-1.0, 1.0]
+    epsilon: 1.0e-7
+    band_requirements:
+      sentinel_2_l2a:
+        nir: "B08"
+        red: "B04"
+      isro_resourcesat_liss4:
+        nir: "B4"
+        red: "B3"
+    thresholds:
+      dense_vegetation: 0.50
+      moderate_vegetation: 0.25
+      sparse_or_bare: 0.10
+      water_or_cloud: 0.00
+
+  ndwi:
+    name: "Normalized Difference Water Index (McFeeters)"
+    formula: "(Green - NIR) / (Green + NIR)"
+    valid_range: [-1.0, 1.0]
+    epsilon: 1.0e-7
+    band_requirements:
+      sentinel_2_l2a:
+        green: "B03"
+        nir: "B08"
+      isro_resourcesat_liss4:
+        green: "B2"
+        nir: "B4"
+    thresholds:
+      clear_water_minimum: 0.00
+      confirmed_water: 0.10
+
+  mndwi:
+    name: "Modified Normalized Difference Water Index (Xu)"
+    formula: "(Green - SWIR1) / (Green + SWIR1)"
+    valid_range: [-1.0, 1.0]
+    epsilon: 1.0e-7
+    band_requirements:
+      sentinel_2_l2a:
+        green: "B03"
+        swir1: "B11"
+    thresholds:
+      water_urban_separation: 0.05
+      turbid_water: 0.00
+
+  ndbi:
+    name: "Normalized Difference Built-Up Index"
+    formula: "(SWIR1 - NIR) / (SWIR1 + NIR)"
+    valid_range: [-1.0, 1.0]
+    epsilon: 1.0e-7
+    band_requirements:
+      sentinel_2_l2a:
+        swir1: "B11"
+        nir: "B08"
+    thresholds:
+      built_up_settlement: 0.00
+
+# ------------------------------------------------------------------------------
+# SAR Physics Calibration & Polarimetric Rules
+# ------------------------------------------------------------------------------
+sar_physics:
+  intensity_to_db_formula: "10.0 * log10(max(intensity, epsilon))"
+  amplitude_to_intensity: "amplitude ** 2"
+  epsilon: 1.0e-7
+  clamping_range_db: [-35.0, 5.0]
+  water_thresholds_db:
+    vv_max_db: -16.0     # Specular reflection over water yields low co-pol return
+    vh_max_db: -23.0     # Smooth water surface causes negligible cross-pol volume scattering
+  urban_thresholds_db:
+    vv_min_db: -6.0      # Corner reflector double-bounce yields intense return
+  bitemporal_change_thresholds:
+    flood_inundation_delta_db: -4.0   # Drop in backscatter indicates newly inundated land
+    destruction_delta_db: -5.0        # Collapse of urban double-bounce

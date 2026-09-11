@@ -4,10 +4,42 @@
 
 @layer base {
   :root {
+    --bg-primary: #F8FAFC;
+    --bg-secondary: #F1F5F9;
+    --bg-purple: #F3F4F6;
+    --bg-accent-blue: #E2E8F0;
+    --surface: #FFFFFF;
+    --surface-hover: #F8FAFC;
+    --primary-blue: #2563EB;
+    --primary-purple: #6366F1;
+    --cyan-accent: #0284C7;
+    --text-main: #0F172A;
+    --text-secondary: #475569;
+    --text-muted: #64748B;
+    --border: #E2E8F0;
+    --active: #0D9488;
+    --warning: #D97706;
+
     color-scheme: light;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
   .dark {
+    --bg-primary: #080E21;
+    --bg-secondary: #0D1636;
+    --bg-purple: #171138;
+    --bg-accent-blue: #1D3567;
+    --surface: #101F38;
+    --surface-hover: #152A48;
+    --primary-blue: #5B8CFF;
+    --primary-purple: #7C6CFF;
+    --cyan-accent: #22D3EE;
+    --text-main: #F5F7FF;
+    --text-secondary: #A8B6CF;
+    --text-muted: #71819B;
+    --border: #263B5C;
+    --active: #2DD4BF;
+    --warning: #F5B942;
+
     color-scheme: dark;
   }
   
@@ -22,95 +54,230 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  html, body {
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
   /* Custom scrollbar for satellite telemetry & panes */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
   ::-webkit-scrollbar-track {
-    background: transparent;
+    background: #F1F5F9;
+  }
+  .dark ::-webkit-scrollbar-track {
+    background: #071426;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.3);
+    background: #CBD5E1;
     border-radius: 9999px;
   }
   .dark ::-webkit-scrollbar-thumb {
-    background: rgba(51, 65, 85, 0.7);
+    background: #263B5C;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(20, 184, 166, 0.6);
+    background: #5B8CFF;
   }
 }
 
 @layer components {
-  /* Tactile button base with smooth hover elevation, focus-ring, and tactile click depression */
+  /* Tactile button base with smooth hover elevation, scale, and natural click response */
   .btn-tactile {
-    @apply inline-flex items-center justify-center font-medium transition-all duration-200 ease-out select-none
-           hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.97]
-           focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-offset-2
-           dark:focus-visible:ring-offset-slate-950 disabled:opacity-50 disabled:pointer-events-none disabled:transform-none;
+    @apply inline-flex items-center justify-center font-medium select-none
+           transition-all duration-200 ease-out
+           hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5B8CFF] focus-visible:ring-offset-2
+           focus-visible:ring-offset-[#071426] disabled:opacity-50 disabled:pointer-events-none disabled:transform-none;
   }
 
+  /* Modern Space AI Primary Button (Blue #5B8CFF -> Purple #7C6CFF Gradient with subtle soft glow) */
   .btn-primary {
-    @apply btn-tactile bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold
-           shadow-md shadow-teal-500/20 hover:shadow-lg hover:shadow-teal-500/30;
+    @apply btn-tactile bg-gradient-to-r from-[#5B8CFF] to-[#7C6CFF]
+           hover:from-[#6c99ff] hover:to-[#8c7eff] text-[#F5F7FF] font-semibold
+           shadow-md shadow-[#5B8CFF]/20 hover:shadow-lg hover:shadow-[#5B8CFF]/35;
   }
 
+  /* Refined Hero CTA Gradient with Soft Glow */
   .btn-gradient {
-    @apply btn-tactile bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-400
-           hover:from-teal-300 hover:via-teal-400 hover:to-emerald-300 text-slate-950 font-bold
-           shadow-lg shadow-teal-500/30 hover:shadow-xl hover:shadow-teal-400/40;
+    @apply btn-tactile bg-gradient-to-r from-[#5B8CFF] to-[#7C6CFF]
+           hover:from-[#6c99ff] hover:to-[#8c7eff]
+           text-[#F5F7FF] font-semibold shadow-lg shadow-[#5B8CFF]/20 hover:shadow-xl hover:shadow-[#5B8CFF]/35;
+  }
+
+  /* Clean Heading Gradient with Animated Shimmer */
+  .theme-heading-gradient {
+    background-image: linear-gradient(135deg, #5B8CFF 0%, #8A7BFF 28%, #22D3EE 58%, #5B8CFF 90%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: text-gradient-shimmer 7s ease infinite;
+  }
+
+  .dark .theme-heading-gradient {
+    background-image: linear-gradient(135deg, #5B8CFF 0%, #8A7BFF 28%, #22D3EE 58%, #5B8CFF 90%);
+    background-size: 200% auto;
+    animation: text-gradient-shimmer 7s ease infinite;
+  }
+
+  /* SatQueryAI 'AI' Bright Blue/Purple Brand Gradient */
+  .text-ai-gradient {
+    background-image: linear-gradient(135deg, #5B8CFF 0%, #7C6CFF 60%, #A78BFA 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Clean Daylight Aerospace Gradient (Light) & Deep Space Void (Dark) */
+  .bg-modern-gradient {
+    background-color: #F8FAFC;
+    background-image: 
+      radial-gradient(ellipse 90% 55% at 50% -8%, rgba(59, 130, 246, 0.08), transparent 70%),
+      radial-gradient(ellipse 65% 50% at 88% 28%, rgba(14, 165, 233, 0.06), transparent 70%),
+      radial-gradient(ellipse 55% 50% at 12% 65%, rgba(99, 102, 241, 0.06), transparent 70%),
+      linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 40%, #F8FAFC 75%, #EFF6FF 100%);
+    background-attachment: fixed;
+    transition: background-color 0.3s ease;
+  }
+
+  .dark .bg-modern-gradient {
+    background-color: #050811;
+    background-image: 
+      radial-gradient(ellipse 90% 55% at 50% -8%, rgba(79, 172, 254, 0.18), transparent 70%),
+      radial-gradient(ellipse 65% 50% at 88% 28%, rgba(0, 242, 254, 0.14), transparent 70%),
+      radial-gradient(ellipse 55% 50% at 12% 65%, rgba(124, 108, 255, 0.14), transparent 70%),
+      radial-gradient(ellipse 75% 45% at 50% 108%, rgba(79, 172, 254, 0.15), transparent 70%),
+      linear-gradient(180deg, #050811 0%, #070E22 22%, #0B132B 48%, #111135 74%, #050811 100%);
+    background-attachment: fixed;
+  }
+
+  /* Subtle Logo Glow and Hover Elevation */
+  .logo-hover-glow {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .logo-hover-glow:hover {
+    box-shadow: 0 0 20px rgba(79, 172, 254, 0.4), 0 0 40px rgba(0, 242, 254, 0.2);
+    border-color: rgba(0, 242, 254, 0.7);
   }
 
   .btn-secondary {
-    @apply btn-tactile bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800
-           text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-800
-           hover:border-teal-500/40 dark:hover:border-teal-500/40 shadow-sm hover:shadow-md;
+    @apply btn-tactile bg-white dark:bg-[#101F38]/90 hover:bg-slate-100 dark:hover:bg-[#152A48]
+           text-slate-800 dark:text-[#F5F7FF] border border-slate-200 dark:border-[#263B5C]
+           hover:border-[#5B8CFF]/60 shadow-sm hover:shadow transition-colors duration-200;
   }
 
+  .surface-card {
+    @apply bg-white dark:bg-[#101F38] hover:bg-slate-50 dark:hover:bg-[#152A48] border border-slate-200 dark:border-[#263B5C] hover:border-[#5B8CFF]/40 transition-colors duration-200;
+  }
+
+  /* Vibrant Earth Observation Emerald Button */
   .btn-outline-teal {
-    @apply btn-tactile border border-teal-500/50 text-teal-600 dark:text-teal-300
-           hover:bg-teal-500/15 hover:border-teal-400 shadow-sm hover:shadow-teal-500/10;
+    @apply btn-tactile border border-emerald-500/50 text-emerald-700 dark:text-emerald-400
+           hover:bg-emerald-500/10 hover:border-emerald-500 shadow-sm;
   }
 
   .btn-ghost {
     @apply btn-tactile text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white
-           hover:bg-slate-100/80 dark:hover:bg-slate-800/80;
+           hover:bg-slate-100/90 dark:hover:bg-slate-800/90;
   }
 
   /* Geospatial Grid / Radar Overlay */
   .geo-grid-pattern {
     background-size: 24px 24px;
     background-image: 
-      linear-gradient(to right, rgba(20, 184, 166, 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(20, 184, 166, 0.05) 1px, transparent 1px);
+      linear-gradient(to right, rgba(37, 99, 235, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(37, 99, 235, 0.04) 1px, transparent 1px);
   }
 
   .dark .geo-grid-pattern {
     background-image: 
-      linear-gradient(to right, rgba(20, 184, 166, 0.08) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(20, 184, 166, 0.08) 1px, transparent 1px);
+      linear-gradient(to right, rgba(59, 130, 246, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(59, 130, 246, 0.06) 1px, transparent 1px);
   }
 
-  /* Bright radiant card glow */
-  .luminous-glow {
-    box-shadow: 0 0 50px -10px rgba(45, 212, 191, 0.25), 0 0 20px -5px rgba(6, 182, 212, 0.2);
+  /* Crisp Professional Elevation Shadow (No fuzzy neon blur) */
+  .elevation-card {
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+  }
+  .dark .elevation-card {
+    box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.5), 0 2px 8px -1px rgba(0, 0, 0, 0.3);
   }
 
-  /* AI Mascot Orbital and Floating Animations */
-  @keyframes mascot-float {
-    0%, 100% {
-      transform: translateY(0px) rotate(0deg) scale(1);
-    }
-    33% {
-      transform: translateY(-5px) rotate(1.2deg) scale(1.015);
-    }
-    66% {
-      transform: translateY(-2px) rotate(-1.2deg) scale(0.995);
+  /* Reveal on Scroll Effect (Smooth, Measured, 1000ms Duration) */
+  .reveal-on-scroll {
+    opacity: 0;
+    transition-property: opacity, transform;
+    transition-duration: 1000ms;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+  }
+
+  .reveal-on-scroll.reveal-up {
+    transform: translateY(36px);
+  }
+
+  .reveal-on-scroll.reveal-down {
+    transform: translateY(-36px);
+  }
+
+  .reveal-on-scroll.reveal-left {
+    transform: translateX(36px);
+  }
+
+  .reveal-on-scroll.reveal-right {
+    transform: translateX(-36px);
+  }
+
+  .reveal-on-scroll.reveal-zoom {
+    transform: scale(0.94);
+  }
+
+  .reveal-on-scroll.reveal-fade {
+    transform: none;
+  }
+
+  /* When element enters viewport */
+  .reveal-on-scroll.revealed {
+    opacity: 1;
+    transform: translateY(0) translateX(0) scale(1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal-on-scroll {
+      opacity: 1 !important;
+      transform: none !important;
+      transition: none !important;
     }
   }
 
-  @keyframes mascot-orbit {
+  /* Clean Professional Dark Panel */
+  .glass-panel-dark {
+    background: rgba(11, 15, 25, 0.9);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(51, 65, 85, 0.5);
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7);
+  }
+
+  /* Aerospace Satellite Swath Scan Pulse */
+  @keyframes swathScan {
+    0% {
+      opacity: 0.18;
+      transform: scaleY(0.96);
+    }
+    50% {
+      opacity: 0.48;
+      transform: scaleY(1.04);
+    }
+    100% {
+      opacity: 0.18;
+      transform: scaleY(0.96);
+    }
+  }
+
+  /* 360-Degree Slow Rotating Radar Sweep */
+  @keyframes radarSweep {
     from {
       transform: rotate(0deg);
     }
@@ -119,196 +286,570 @@
     }
   }
 
-  @keyframes mascot-glow-pulse {
+  /* Smooth Dashed Orbit Track Flow */
+  @keyframes orbitDashFlow {
+    to {
+      stroke-dashoffset: -120;
+    }
+  }
+
+  /* Reverse Dashed Orbit Track Flow */
+  @keyframes orbitDashFlowReverse {
+    to {
+      stroke-dashoffset: 120;
+    }
+  }
+
+  /* Volumetric Horizon Ozone Shimmer */
+  @keyframes atmosphericShimmer {
     0%, 100% {
-      opacity: 0.55;
-      transform: scale(1.05);
-      filter: blur(14px);
+      opacity: 0.65;
     }
     50% {
-      opacity: 0.95;
-      transform: scale(1.22);
-      filter: blur(20px);
+      opacity: 0.88;
     }
   }
 
-  .animate-mascot-float {
-    animation: mascot-float 4s ease-in-out infinite;
-  }
-
-  .animate-mascot-orbit {
-    animation: mascot-orbit 12s linear infinite;
-  }
-
-  .animate-mascot-glow {
-    animation: mascot-glow-pulse 4.5s ease-in-out infinite;
+  .animate-swath-scan {
+    animation: swathScan 4.5s ease-in-out infinite;
+    transform-origin: 50% 0%;
   }
 
   .animate-radar-sweep {
-    animation: radar-sweep 2.2s ease-in-out infinite;
+    animation: radarSweep 28s linear infinite;
+    transform-origin: center;
   }
 
-  /* Space & Satellite Orbit Animations */
-  @keyframes star-twinkle {
+  .animate-orbit-flow {
+    animation: orbitDashFlow 30s linear infinite;
+  }
+
+  .animate-orbit-flow-reverse {
+    animation: orbitDashFlowReverse 35s linear infinite;
+  }
+
+  .animate-atmospheric-shimmer {
+    animation: atmosphericShimmer 6s ease-in-out infinite;
+  }
+
+  /* ========================================================================= */
+  /* SATQUERY AI HERO ANIMATIONS (GPU-ACCELERATED 60FPS)                       */
+  /* ========================================================================= */
+
+  /* Continuous Floating Satellite & Orbital Drift */
+  @keyframes satellite-orbit-drift {
     0%, 100% {
-      opacity: 0.25;
-      transform: scale(0.85);
+      transform: translateY(0px) rotate(-0.5deg);
     }
     50% {
-      opacity: 1;
-      transform: scale(1.25);
+      transform: translateY(-12px) rotate(0.5deg);
     }
   }
 
-  @keyframes orbit-pulse {
+  .animate-satellite-drift {
+    animation: satellite-orbit-drift 9s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  /* Solar Glare & Lens Flare Pulse */
+  @keyframes solar-glare-pulse {
     0%, 100% {
+      opacity: 0.6;
+      transform: scale(0.97);
+    }
+    50% {
+      opacity: 0.92;
+      transform: scale(1.04);
+    }
+  }
+
+  .animate-solar-glare {
+    animation: solar-glare-pulse 5s ease-in-out infinite;
+    will-change: opacity, transform;
+  }
+
+  /* Shimmering Specular Sweep Across Solar Panels */
+  @keyframes solar-shimmer-sweep {
+    0% {
+      transform: translateX(-120%) translateY(-120%) rotate(32deg);
+      opacity: 0;
+    }
+    18% {
       opacity: 0.35;
-      stroke-width: 1px;
     }
-    50% {
-      opacity: 0.85;
-      stroke-width: 1.75px;
-    }
-  }
-
-  @keyframes telemetry-flow {
-    from {
-      stroke-dashoffset: 400;
-    }
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-
-  @keyframes particle-drift {
-    0% {
-      transform: translateY(0px) translateX(0px);
-      opacity: 0.2;
-    }
-    50% {
-      opacity: 0.75;
-      transform: translateY(-25px) translateX(12px);
+    38% {
+      transform: translateX(120%) translateY(120%) rotate(32deg);
+      opacity: 0;
     }
     100% {
-      transform: translateY(-50px) translateX(0px);
-      opacity: 0.1;
+      transform: translateX(120%) translateY(120%) rotate(32deg);
+      opacity: 0;
     }
   }
 
-  @keyframes earth-aurora {
+  .solar-panel-shimmer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .solar-panel-shimmer::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+      135deg,
+      transparent 42%,
+      rgba(255, 255, 255, 0.16) 48%,
+      rgba(34, 211, 238, 0.22) 51%,
+      rgba(91, 140, 255, 0.16) 54%,
+      transparent 60%
+    );
+    animation: solar-shimmer-sweep 7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    will-change: transform, opacity;
+  }
+
+  /* Animated Gradient Shift Across Heading */
+  @keyframes text-gradient-shimmer {
     0%, 100% {
-      filter: drop-shadow(0 -10px 45px rgba(20, 184, 166, 0.4));
+      background-position: 0% 50%;
     }
     50% {
-      filter: drop-shadow(0 -15px 70px rgba(56, 189, 248, 0.6));
+      background-position: 100% 50%;
     }
   }
 
-  @keyframes satellite-glide {
-    0% {
-      transform: translate(-12px, 8px) rotate(0deg);
+  /* Active Pipeline Telemetry Indicator Pulse */
+  @keyframes active-pipeline-pulse {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 0 4px #00ff88, 0 0 8px rgba(0, 255, 136, 0.45);
     }
     50% {
-      transform: translate(10px, -8px) rotate(1.5deg);
+      transform: scale(1.3);
+      box-shadow: 0 0 12px #00ff88, 0 0 18px rgba(0, 255, 136, 0.75);
+    }
+  }
+
+  .animate-active-pipeline {
+    animation: active-pipeline-pulse 2s ease-in-out infinite;
+    will-change: transform, box-shadow;
+  }
+
+  /* Telemetry Horizontal Scanning Laser Sweep */
+  @keyframes telemetry-laser-scan {
+    0% {
+      top: 0%;
+      opacity: 0;
+    }
+    8% {
+      opacity: 0.65;
+    }
+    42% {
+      opacity: 0.65;
+    }
+    50% {
+      top: 100%;
+      opacity: 0;
     }
     100% {
-      transform: translate(-12px, 8px) rotate(0deg);
+      top: 100%;
+      opacity: 0;
     }
   }
 
-  .animate-star-twinkle {
-    animation: star-twinkle 4s ease-in-out infinite;
+  .telemetry-scan-laser {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(34, 211, 238, 0.15) 15%,
+      rgba(34, 211, 238, 0.85) 50%,
+      rgba(34, 211, 238, 0.15) 85%,
+      transparent 100%
+    );
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.6), 0 0 20px rgba(79, 172, 254, 0.4);
+    pointer-events: none;
+    z-index: 25;
+    animation: telemetry-laser-scan 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    will-change: top, opacity;
   }
 
-  .animate-orbit-pulse {
-    animation: orbit-pulse 6s ease-in-out infinite;
+  /* Interactive Pipeline Stage Step Cards */
+  .pipeline-step-card {
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.25s ease,
+                box-shadow 0.25s ease,
+                background-color 0.2s ease;
+    will-change: transform;
   }
 
-  .animate-telemetry-flow {
-    animation: telemetry-flow 25s linear infinite;
+  .pipeline-step-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(99, 102, 241, 0.6) !important;
+    box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.25), 0 0 14px rgba(99, 102, 241, 0.15);
   }
 
-  .animate-particle-drift {
-    animation: particle-drift 8s ease-in-out infinite;
+  /* ========================================================================= */
+  /* ZERO-GRAVITY ASTRONAUT & ORBITAL DEBRIS ANIMATIONS (LOGIN ENVIRONMENT)    */
+  /* ========================================================================= */
+
+  /* 3D Astronaut Zero-G Multi-Axis Drift & Pitch/Roll */
+  @keyframes zero-g-astronaut-drift {
+    0%, 100% {
+      transform: translate3d(0px, 0px, 0px) rotate(-0.4deg) scale(1);
+    }
+    25% {
+      transform: translate3d(8px, -8px, 0px) rotate(0.4deg) scale(1.008);
+    }
+    50% {
+      transform: translate3d(-6px, -15px, 0px) rotate(-0.8deg) scale(1.015);
+    }
+    75% {
+      transform: translate3d(-10px, -6px, 0px) rotate(0.8deg) scale(1.008);
+    }
   }
 
-  .animate-earth-aurora {
-    animation: earth-aurora 7s ease-in-out infinite;
+  .animate-zero-g-astronaut {
+    animation: zero-g-astronaut-drift 11s ease-in-out infinite;
+    will-change: transform;
   }
 
-  .animate-satellite-glide {
-    animation: satellite-glide 9s ease-in-out infinite;
-  }
-
-  /* Scan Swath & Data Path Animations */
-  @keyframes scan-swath {
+  /* Specular Visor Gleam & Rim Light Wave */
+  @keyframes astronaut-visor-shine {
     0%, 100% {
       opacity: 0.15;
-      transform: scaleX(0.95);
+      transform: translateX(-100%) translateY(-100%) rotate(25deg);
     }
-    50% {
-      opacity: 0.35;
-      transform: scaleX(1.05);
-    }
-  }
-
-  @keyframes data-path-flow {
-    from {
-      stroke-dashoffset: 800;
-    }
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-
-  @keyframes neon-glow-pulse {
-    0%, 100% {
+    20% {
       opacity: 0.4;
-      filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.4));
     }
-    50% {
-      opacity: 0.9;
-      filter: drop-shadow(0 0 20px rgba(45, 212, 191, 0.7));
+    45% {
+      opacity: 0;
+      transform: translateX(120%) translateY(120%) rotate(25deg);
     }
   }
 
-  .animate-scan-swath {
-    animation: scan-swath 4.5s ease-in-out infinite;
-    transform-origin: 520px 355px;
+  .astronaut-visor-gleam {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    pointer-events: none;
+    background: linear-gradient(
+      135deg,
+      transparent 45%,
+      rgba(255, 255, 255, 0.12) 49%,
+      rgba(0, 242, 254, 0.22) 51%,
+      rgba(79, 172, 254, 0.14) 53%,
+      transparent 58%
+    );
+    animation: astronaut-visor-shine 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    will-change: transform, opacity;
   }
 
-  .animate-data-flow {
-    animation: data-path-flow 20s linear infinite;
-  }
-
-  .animate-neon-pulse {
-    animation: neon-glow-pulse 5s ease-in-out infinite;
-  }
-
-  /* Subtle Backlight Radiance Breathing Animation for Login Card */
-  @keyframes card-backlight-pulse {
+  /* Asynchronous Floating Satellite Solar Panel Wing */
+  @keyframes solar-wing-drift {
     0%, 100% {
-      opacity: 0.85;
-      transform: scale(1);
+      transform: translate3d(0px, 0px, 0px) rotate(0deg);
     }
     50% {
-      opacity: 1;
-      transform: scale(1.012);
+      transform: translate3d(-12px, -18px, 0px) rotate(-1.4deg);
     }
   }
 
-  .animate-backlight-pulse {
-    animation: card-backlight-pulse 7s ease-in-out infinite;
+  .animate-solar-wing-float {
+    animation: solar-wing-drift 12.5s ease-in-out infinite;
+    will-change: transform;
   }
 
-  /* Premium Futuristic Dark Glassmorphism Panel */
-  .glass-panel-dark {
-    background: rgba(3, 7, 18, 0.82);
-    backdrop-filter: blur(28px);
-    -webkit-backdrop-filter: blur(28px);
-    border: 1px solid rgba(56, 189, 248, 0.24);
-    box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.9),
-                0 0 40px -10px rgba(14, 165, 233, 0.22),
-                inset 0 1px 1px 0 rgba(255, 255, 255, 0.1);
+  @keyframes solar-wing-sheen-sweep {
+    0%, 100% {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+    25% {
+      opacity: 0.45;
+    }
+    50% {
+      transform: translateX(100%);
+      opacity: 0;
+    }
   }
+
+  .solar-wing-sheen {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 242, 254, 0.25) 50%,
+      transparent 100%
+    );
+    animation: solar-wing-sheen-sweep 6s ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+
+  /* Asynchronous Comms Array Float */
+  @keyframes comms-dish-drift {
+    0%, 100% {
+      transform: translate3d(0px, 0px, 0px) rotate(0deg);
+    }
+    50% {
+      transform: translate3d(10px, -14px, 0px) rotate(1deg);
+    }
+  }
+
+  .animate-comms-dish-float {
+    animation: comms-dish-drift 10s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  /* Tumbling Space Tools & Orbit Debris (Asynchronous Micro-Physics) */
+  @keyframes tool-drift-1 {
+    0%, 100% {
+      transform: translate3d(0px, 0px, 0px) rotate(0deg);
+    }
+    33% {
+      transform: translate3d(14px, -16px, 0px) rotate(9deg);
+    }
+    66% {
+      transform: translate3d(-8px, -22px, 0px) rotate(-5deg);
+    }
+  }
+
+  .animate-tool-drift-1 {
+    animation: tool-drift-1 8.5s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  @keyframes tool-drift-2 {
+    0%, 100% {
+      transform: translate3d(0px, 0px, 0px) rotate(0deg);
+    }
+    50% {
+      transform: translate3d(-15px, 12px, 0px) rotate(-14deg);
+    }
+  }
+
+  .animate-tool-drift-2 {
+    animation: tool-drift-2 9.5s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  /* Pulsing Top-Right Solar Flare */
+  @keyframes solar-flare-pulse-slow {
+    0%, 100% {
+      opacity: 0.6;
+      transform: scale(0.96);
+    }
+    50% {
+      opacity: 0.95;
+      transform: scale(1.05);
+    }
+  }
+
+  .animate-solar-flare-pulse {
+    animation: solar-flare-pulse-slow 5s ease-in-out infinite;
+    will-change: opacity, transform;
+  }
+
+  /* Respect User Accessibility Preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-satellite-drift,
+    .animate-solar-glare,
+    .solar-panel-shimmer::after,
+    .theme-heading-gradient,
+    .animate-active-pipeline,
+    .telemetry-scan-laser,
+    .pipeline-step-card,
+    .pipeline-step-card:hover,
+    .animate-zero-g-astronaut,
+    .astronaut-visor-gleam,
+    .animate-solar-wing-float,
+    .solar-wing-sheen,
+    .animate-comms-dish-float,
+    .animate-tool-drift-1,
+    .animate-tool-drift-2,
+    .animate-solar-flare-pulse {
+      animation: none !important;
+      transition: none !important;
+      transform: none !important;
+    }
+  }
+}
+
+/* ========================================================================= */
+/* COMPREHENSIVE LIGHT MODE ADAPTATION OVERRIDES                             */
+/* ========================================================================= */
+
+html.light,
+html:not(.dark) {
+  color-scheme: light;
+}
+
+html.light body,
+html:not(.dark) body {
+  background-color: #F8FAFC !important;
+  color: #0F172A !important;
+}
+
+/* Global transitions for buttery-smooth theme toggling */
+html.light *,
+html.light *::before,
+html.light *::after,
+html.dark *,
+html.dark *::before,
+html.dark *::after {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 250ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Light mode dark-hex backgrounds mapped to clean surfaces */
+html.light .bg-\[\#050811\],
+html:not(.dark) .bg-\[\#050811\],
+html.light .bg-\[\#040714\],
+html:not(.dark) .bg-\[\#040714\] {
+  background-color: #F8FAFC !important;
+}
+
+html.light .bg-\[\#071426\],
+html:not(.dark) .bg-\[\#071426\],
+html.light .bg-\[\#071026\],
+html:not(.dark) .bg-\[\#071026\],
+html.light .bg-\[\#080E21\],
+html:not(.dark) .bg-\[\#080E21\],
+html.light .bg-\[\#0B1530\],
+html:not(.dark) .bg-\[\#0B1530\] {
+  background-color: #F1F5F9 !important;
+}
+
+html.light .bg-\[\#0B1930\],
+html:not(.dark) .bg-\[\#0B1930\],
+html.light .bg-\[\#101F38\],
+html:not(.dark) .bg-\[\#101F38\],
+html.light .bg-\[\#152A48\],
+html:not(.dark) .bg-\[\#152A48\] {
+  background-color: #FFFFFF !important;
+}
+
+/* Translucent surfaces */
+html.light .bg-\[\#101F38\]\/80,
+html:not(.dark) .bg-\[\#101F38\]\/80,
+html.light .bg-\[\#101F38\]\/90,
+html:not(.dark) .bg-\[\#101F38\]\/90,
+html.light .bg-\[\#101F38\]\/70,
+html:not(.dark) .bg-\[\#101F38\]\/70,
+html.light .bg-\[\#101F38\]\/60,
+html:not(.dark) .bg-\[\#101F38\]\/60,
+html.light .bg-\[\#0B1930\]\/90,
+html:not(.dark) .bg-\[\#0B1930\]\/90,
+html.light .bg-\[\#0B1930\]\/95,
+html:not(.dark) .bg-\[\#0B1930\]\/95,
+html.light .bg-\[\#080E21\]\/90,
+html:not(.dark) .bg-\[\#080E21\]\/90,
+html.light .bg-\[\#080E21\]\/98,
+html:not(.dark) .bg-\[\#080E21\]\/98,
+html.light .bg-\[\#071426\]\/70,
+html:not(.dark) .bg-\[\#071426\]\/70 {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+}
+
+/* Hover surfaces in light mode */
+html.light .hover\:bg-\[\#152A48\]:hover,
+html:not(.dark) .hover\:bg-\[\#152A48\]:hover,
+html.light .hover\:bg-\[\#101F38\]:hover,
+html:not(.dark) .hover\:bg-\[\#101F38\]:hover {
+  background-color: #F1F5F9 !important;
+}
+
+/* Borders in light mode */
+html.light .border-\[\#263B5C\],
+html:not(.dark) .border-\[\#263B5C\],
+html.light .border-\[\#263B5C\]\/80,
+html:not(.dark) .border-\[\#263B5C\]\/80,
+html.light .border-\[\#263B5C\]\/50,
+html:not(.dark) .border-\[\#263B5C\]\/50,
+html.light .border-\[\#263B5C\]\/40,
+html:not(.dark) .border-\[\#263B5C\]\/40,
+html.light .border-\[\#263B5C\]\/25,
+html:not(.dark) .border-\[\#263B5C\]\/25,
+html.light .border-\[\#101F38\],
+html:not(.dark) .border-\[\#101F38\] {
+  border-color: #E2E8F0 !important;
+}
+
+/* Dark text hierarchy in light mode */
+html.light .text-\[\#F5F7FF\],
+html:not(.dark) .text-\[\#F5F7FF\] {
+  color: #0F172A !important;
+}
+
+html.light .text-\[\#A8B6CF\],
+html:not(.dark) .text-\[\#A8B6CF\] {
+  color: #475569 !important;
+}
+
+html.light .text-\[\#71819B\],
+html:not(.dark) .text-\[\#71819B\] {
+  color: #64748B !important;
+}
+
+/* High-contrast base typography in Light Mode */
+html.light,
+html:not(.dark) {
+  color: #0F172A;
+}
+
+html.light h1:not(.theme-heading-gradient),
+html:not(.dark) h1:not(.theme-heading-gradient),
+html.light h2:not(.theme-heading-gradient),
+html:not(.dark) h2:not(.theme-heading-gradient),
+html.light h3:not(.theme-heading-gradient),
+html:not(.dark) h3:not(.theme-heading-gradient),
+html.light h4,
+html:not(.dark) h4,
+html.light h5,
+html:not(.dark) h5,
+html.light h6,
+html:not(.dark) h6 {
+  color: #0F172A;
+}
+
+html.light p,
+html:not(.dark) p {
+  color: #334155;
+}
+
+/* Specific button text styling: ONLY actual primary/gradient action buttons get white text */
+html.light .btn-primary,
+html:not(.dark) .btn-primary,
+html.light .btn-gradient,
+html:not(.dark) .btn-gradient,
+html.light button.btn-gradient,
+html.light button.btn-primary,
+html.light a.btn-gradient,
+html.light a.btn-primary,
+html.light .btn-primary > *,
+html.light .btn-gradient > * {
+  color: #FFFFFF !important;
+}
+
+/* Ensure Heading gradient in light mode is vibrant and fully visible */
+html.light .theme-heading-gradient,
+html:not(.dark) .theme-heading-gradient {
+  background-image: linear-gradient(135deg, #1D4ED8 0%, #4F46E5 32%, #0284C7 65%, #1D4ED8 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
 }

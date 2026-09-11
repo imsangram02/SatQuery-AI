@@ -4,12 +4,10 @@ import {
   Sun, 
   Moon, 
   LayoutDashboard, 
-  Layers, 
   Settings as SettingsIcon, 
   Radio, 
   UserCheck, 
   LogOut,
-  Bot,
   Split,
   ShieldCheck,
   X,
@@ -17,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { Screen, UserProfile } from '../../types';
+import { ModernSatelliteAiLogo } from '../landing/LandingNavbar';
 
 interface NavbarProps {
   currentScreen: Screen;
@@ -122,14 +121,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       badge: 'Live'
     },
     {
-      id: 'workshop',
-      label: 'Workshop',
-      subtitle: 'Geospatial Canvas & AI Models',
-      screen: 'workspace' as Screen,
-      icon: Layers,
-      badge: 'v3.4'
-    },
-    {
       id: 'benchmarks',
       label: 'Benchmarks',
       subtitle: 'SpaceNet 8 Verified SOTA Models',
@@ -152,14 +143,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       screen: 'settings' as Screen,
       tab: 'profile' as const,
       icon: UserCheck
-    },
-    {
-      id: 'chat',
-      label: 'AI Chatbox',
-      subtitle: 'Orbit Multi-Spectral Copilot',
-      screen: 'chat' as Screen,
-      icon: Bot,
-      badge: 'Orbit'
     }
   ];
 
@@ -201,25 +184,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Brand Logo & Platform Title */}
             <button
               onClick={() => onNavigate(user ? 'dashboard' : 'landing')}
-              className="flex items-center gap-2.5 group text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 rounded-lg p-1"
+              className="flex items-center rounded-xl p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5B8CFF]"
               title="SatQuery AI Home"
             >
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-slate-950 shadow-md shadow-teal-500/20 group-hover:scale-105 transition-transform duration-200 flex-shrink-0">
-                <Satellite className="w-5 h-5 text-slate-950 stroke-[2.2]" />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
-                    SatQuery<span className="text-teal-500 dark:text-teal-400">AI</span>
-                  </span>
-                  <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
-                    v3.4
-                  </span>
-                </div>
-                <p className="hidden xs:block text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 leading-none">
-                  Planetary Foundation Models
-                </p>
-              </div>
+              <ModernSatelliteAiLogo size="md" showText={true} />
             </button>
           </div>
 
@@ -297,24 +265,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="flex-shrink-0 relative z-10">
               {/* Sidebar Header with Brand & Close Button */}
               <div className="px-4 py-3 border-b border-slate-200 dark:border-cyan-500/15 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 via-teal-500 to-blue-600 flex items-center justify-center text-slate-950 shadow-md shadow-cyan-500/25 border border-cyan-300/30 flex-shrink-0">
-                    <Satellite className="w-4 h-4 text-slate-950 stroke-[2.3]" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-black tracking-tight text-slate-900 dark:text-white">
-                        SatQuery<span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-500 to-teal-500 dark:from-cyan-400 dark:to-teal-400">AI</span>
-                      </span>
-                      <span className="px-1 py-0.2 text-[8.5px] font-bold uppercase rounded bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30">
-                        v3.4
-                      </span>
-                    </div>
-                    <p className="text-[9.5px] text-slate-500 dark:text-slate-400 font-mono leading-none">
-                      Planetary Mesh
-                    </p>
-                  </div>
-                </div>
+                <ModernSatelliteAiLogo size="sm" showText={true} />
 
                 {/* Close Button */}
                 <button

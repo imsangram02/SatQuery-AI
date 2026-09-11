@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { SensorType, SpectralBandMode, AOIPreset, LayerConfig } from '../../types';
 import { MOCK_AOI_PRESETS } from '../../data/mockData';
+import { SatQueryApiService, SatelliteSample } from '../../services/apiService';
 
 interface StagingPanelProps {
   activeSensor: SensorType;
@@ -54,13 +55,36 @@ export const StagingPanel: React.FC<StagingPanelProps> = ({
     status: 'Staged' | 'Processing';
   }>>([
     {
-      name: 'Rondonia_S2_B04_B08_10m.tif',
-      size: '142.6 MB',
-      type: 'GeoTIFF (COG)',
-      crs: 'EPSG:32621',
+      name: 't0_preFlood.tiff',
+      size: '34.2 MB',
+      type: 'Sentinel-2 L2A (BOA)',
+      crs: 'EPSG:4326',
       status: 'Staged'
     }
   ]);
+
+  const [serverSamples, setServerSamples] = useState<SatelliteSample[]>([]);
+  const [loadingSamples, setLoadingSamples] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    setLoadingSamples(true);
+    SatQueryApiService.getSamples()
+      .then(samples => {
+        if (isMounted && Array.isArray(samples)) {
+          setServerSamples(samples);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setLoadingSamples(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -81,6 +105,48 @@ export const StagingPanel: React.FC<StagingPanelProps> = ({
     { id: 'nbr', label: 'NBR Burn Ratio', formula: '(B08 - B12) / (B08 + B12)' },
     { id: 'sar-dual', label: 'SAR Dual Polarized', formula: 'VV / VH Cross-Ratio' }
   ];
+
+  const handleStageServerSample = (sample: SatelliteSample) => {
+    const newFile = {
+      name: sample.name,
+      size: `${(sample.size_bytes / (1024 * 1024)).toFixed(1)} MB`,
+      type: sample.modality,
+      crs: 'EPSG:4326',
+      status: 'Staged' as const
+    };
+    setStagedFiles(prev => [newFile, ...prev.filter(f => f.name !== sample.name)]);
+    onAddLayer(sample.label.split(' (')[0], 'spectral');
+    setUploadSuccess(true);
+    setTimeout(() => setUploadSuccess(false), 2500);
+  };
+
+  const handleRealFileUpload = async (file: File) => {
+    setIsUploading(true);
+    try {
+      const res = await SatQueryApiService.uploadFile(file);
+      if (!res) {
+        handleSimulatedFileUpload();
+        return;
+      }
+      const newFile = {
+        name: res.original_name || res.filename,
+        size: res.file_size_bytes
+          ? `${(res.file_size_bytes / (1024 * 1024)).toFixed(1)} MB`
+          : `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+        type: file.name.endsWith('.geojson') ? 'GeoJSON Vectors' : 'Satellite GeoTIFF',
+        crs: 'EPSG:4326',
+        status: 'Staged' as const
+      };
+      setStagedFiles(prev => [newFile, ...prev]);
+      onAddLayer(file.name.replace(/\.[^/.]+$/, ''), 'spectral');
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 3000);
+    } catch {
+      handleSimulatedFileUpload();
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSimulatedFileUpload = () => {
     const mockFileNames = [
@@ -218,23 +284,84 @@ export const StagingPanel: React.FC<StagingPanelProps> = ({
           </div>
         </div>
 
-        {/* Section 4: Simulated File Dropzone */}
+        {/* Section 4: Server Satellite Rasters Quick Stage */}
+        {serverSamples.length > 0 && (
+          <div>
+            <label className="block text-[11px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-1.5">
+              <Satellite className="w-3.5 h-3.5 text-teal-500" />
+              Server Satellite Samples
+            </label>
+            <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+              {serverSamples.map((sample) => (
+                <button
+                  key={sample.id}
+                  onClick={() => handleStageServerSample(sample)}
+                  className="w-full text-left p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-teal-500/50 transition-all flex items-center justify-between group active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    {sample.preview_url ? (
+                      <img
+                        src={sample.preview_url}
+                        alt={sample.label}
+                        className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-500 flex items-center justify-center font-bold text-[10px] flex-shrink-0">
+                        SAT
+                      </div>
+                    )}
+                    <div className="truncate">
+                      <div className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                        {sample.label}
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                        {sample.modality}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-teal-600 dark:text-teal-400 opacity-0 group-hover:opacity-100 transition-opacity font-semibold ml-1">
+                    Stage +
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Section 5: Stage Local File Dropzone */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-[11px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
               <UploadCloud className="w-3.5 h-3.5 text-teal-500" />
               Stage Raster / Vectors
             </label>
-            {uploadSuccess && (
+            {isUploading ? (
+              <span className="text-[10px] font-mono text-cyan-500 flex items-center gap-1 animate-pulse">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                Uploading...
+              </span>
+            ) : uploadSuccess ? (
               <span className="text-[10px] font-mono text-teal-600 dark:text-teal-400 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                Parsed COG
+                Staged
               </span>
-            )}
+            ) : null}
           </div>
 
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept=".tif,.tiff,.png,.jpg,.jpeg,.geojson,.json"
+            onChange={(e) => {
+              if (e.target.files && e.target.files[0]) {
+                handleRealFileUpload(e.target.files[0]);
+              }
+            }}
+          />
+
           <div
-            onClick={handleSimulatedFileUpload}
+            onClick={() => fileInputRef.current?.click()}
             onDragOver={(e) => {
               e.preventDefault();
               setIsDraggingFile(true);
@@ -243,7 +370,11 @@ export const StagingPanel: React.FC<StagingPanelProps> = ({
             onDrop={(e) => {
               e.preventDefault();
               setIsDraggingFile(false);
-              handleSimulatedFileUpload();
+              if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                handleRealFileUpload(e.dataTransfer.files[0]);
+              } else {
+                handleSimulatedFileUpload();
+              }
             }}
             className={`p-4 rounded-2xl border-2 border-dashed text-center cursor-pointer transition-all duration-150 active:scale-[0.98] ${
               isDraggingFile
@@ -253,10 +384,10 @@ export const StagingPanel: React.FC<StagingPanelProps> = ({
           >
             <UploadCloud className="w-6 h-6 mx-auto text-teal-500 mb-1" />
             <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-              Drop GeoTIFF, GeoJSON, or SHP
+              Drop GeoTIFF, GeoJSON, or Raster
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-              Click to browse local files or simulate staging
+              Click to browse local files or upload to engine
             </p>
           </div>
 

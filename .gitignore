@@ -1,0 +1,36 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Local environments
+.venv/
+env/
+venv/
+ENV/
+
+# Output predictions and generated reports
+data/outputs/geojson/*
+!data/outputs/geojson/.gitkeep
+data/outputs/heatmaps/*
+!data/outputs/heatmaps/.gitkeep
+data/outputs/masks/*
+!data/outputs/masks/.gitkeep
+data/outputs/overlays/*
+!data/outputs/overlays/.gitkeep
+data/outputs/reports/*
+!data/outputs/reports/.gitkeep
+
+# Temporary uploads and preview caches
+data/inputs/uploads/*_preview.png
+data/inputs/uploads/**/*_preview.png
+data/inputs/uploads/upload_*
+
+# Node & Frontend build
+node_modules/
+dist/
+
+# OS generated files
+.DS_Store
+Thumbs.db
