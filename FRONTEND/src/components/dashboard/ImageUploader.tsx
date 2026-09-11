@@ -234,14 +234,14 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
               Drag & Drop Satellite Imagery Here
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Supports <strong className="text-cyan-600 dark:text-cyan-400">GeoTIFF (.tif, .tiff)</strong>, PNG, and JPG images, or click to browse.
+              Supports <strong className="text-cyan-600 dark:text-cyan-400">GeoTIFF (.tif, .tiff)</strong> or click to browse.
             </p>
           </div>
         </div>
       </div>
 
       {/* Quick Select from Server Imagery & Datasets */}
-      {availableSamples.length > 0 && (
+      {/* {availableSamples.length > 0 && (
         <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -297,7 +297,7 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({
             </div>
           )}
         </div>
-      )}
+      )} */}
 
       {/* Format Error Alert */}
       {errorMessage && (
